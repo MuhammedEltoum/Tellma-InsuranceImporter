@@ -1,0 +1,49 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36203.30
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tellma.InsuranceImporter.Contract", "Tellma.InsuranceImporter.Contract\Tellma.InsuranceImporter.Contract.csproj", "{23F5B49F-04CB-43F4-B2FA-FED2C268EEC1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tellma.InsuranceImporter.Repository", "Tellma.InsuranceImporter.Repository\Tellma.InsuranceImporter.Repository.csproj", "{17DE7BD0-9CD5-40C9-AD9B-CE91A77E1802}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tellma.InsuranceImporter.WindowsService", "Tellma.InsuranceImporter.WindowsService\Tellma.InsuranceImporter.WindowsService.csproj", "{C235E648-B04C-46D7-89E2-F0BEBB31F6A3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tellma.Utilities.EmailLogger", "Tellma.Utilities.EmailLogger\Tellma.Utilities.EmailLogger.csproj", "{EE073A80-2F73-4476-B812-FC6B0643DA9B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tellma.InsuranceImporter", "Tellma.InsuranceImporter\Tellma.InsuranceImporter.csproj", "{1007D5F2-C947-440F-8D83-6D42C145AC96}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{23F5B49F-04CB-43F4-B2FA-FED2C268EEC1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{23F5B49F-04CB-43F4-B2FA-FED2C268EEC1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{23F5B49F-04CB-43F4-B2FA-FED2C268EEC1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{23F5B49F-04CB-43F4-B2FA-FED2C268EEC1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{17DE7BD0-9CD5-40C9-AD9B-CE91A77E1802}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{17DE7BD0-9CD5-40C9-AD9B-CE91A77E1802}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{17DE7BD0-9CD5-40C9-AD9B-CE91A77E1802}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{17DE7BD0-9CD5-40C9-AD9B-CE91A77E1802}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C235E648-B04C-46D7-89E2-F0BEBB31F6A3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C235E648-B04C-46D7-89E2-F0BEBB31F6A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C235E648-B04C-46D7-89E2-F0BEBB31F6A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C235E648-B04C-46D7-89E2-F0BEBB31F6A3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EE073A80-2F73-4476-B812-FC6B0643DA9B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EE073A80-2F73-4476-B812-FC6B0643DA9B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EE073A80-2F73-4476-B812-FC6B0643DA9B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EE073A80-2F73-4476-B812-FC6B0643DA9B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1007D5F2-C947-440F-8D83-6D42C145AC96}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1007D5F2-C947-440F-8D83-6D42C145AC96}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1007D5F2-C947-440F-8D83-6D42C145AC96}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1007D5F2-C947-440F-8D83-6D42C145AC96}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {FE3C382F-0000-4C80-93F1-A722B2DB97CB}
+	EndGlobalSection
+EndGlobal

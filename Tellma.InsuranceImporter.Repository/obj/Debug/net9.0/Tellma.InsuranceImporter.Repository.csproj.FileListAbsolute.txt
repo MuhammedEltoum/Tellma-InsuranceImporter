@@ -1,0 +1,15 @@
+C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tellma.InsuranceImporter\Tellma.InsuranceImporter.Repository\obj\Debug\net9.0\Tellma.InsuranceImporter.Repository.csproj.AssemblyReference.cache
+C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tellma.InsuranceImporter\Tellma.InsuranceImporter.Repository\obj\Debug\net9.0\Tellma.InsuranceImporter.Repository.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tellma.InsuranceImporter\Tellma.InsuranceImporter.Repository\obj\Debug\net9.0\Tellma.InsuranceImporter.Repository.AssemblyInfoInputs.cache
+C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tellma.InsuranceImporter\Tellma.InsuranceImporter.Repository\obj\Debug\net9.0\Tellma.InsuranceImporter.Repository.AssemblyInfo.cs
+C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tellma.InsuranceImporter\Tellma.InsuranceImporter.Repository\obj\Debug\net9.0\Tellma.InsuranceImporter.Repository.csproj.CoreCompileInputs.cache
+C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tellma.InsuranceImporter\Tellma.InsuranceImporter.Repository\bin\Debug\net9.0\Tellma.InsuranceImporter.Repository.deps.json
+C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tellma.InsuranceImporter\Tellma.InsuranceImporter.Repository\bin\Debug\net9.0\Tellma.InsuranceImporter.Repository.dll
+C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tellma.InsuranceImporter\Tellma.InsuranceImporter.Repository\bin\Debug\net9.0\Tellma.InsuranceImporter.Repository.pdb
+C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tellma.InsuranceImporter\Tellma.InsuranceImporter.Repository\obj\Debug\net9.0\Tellma.InsuranceImporter.Repository.dll
+C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tellma.InsuranceImporter\Tellma.InsuranceImporter.Repository\obj\Debug\net9.0\refint\Tellma.InsuranceImporter.Repository.dll
+C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tellma.InsuranceImporter\Tellma.InsuranceImporter.Repository\obj\Debug\net9.0\Tellma.InsuranceImporter.Repository.pdb
+C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tellma.InsuranceImporter\Tellma.InsuranceImporter.Repository\obj\Debug\net9.0\ref\Tellma.InsuranceImporter.Repository.dll
+C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tellma.InsuranceImporter\Tellma.InsuranceImporter.Repository\bin\Debug\net9.0\Tellma.InsuranceImporter.Contract.dll
+C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tellma.InsuranceImporter\Tellma.InsuranceImporter.Repository\bin\Debug\net9.0\Tellma.InsuranceImporter.Contract.pdb
+C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tellma.InsuranceImporter\Tellma.InsuranceImporter.Repository\obj\Debug\net9.0\Tellma.I.8EF2564D.Up2Date

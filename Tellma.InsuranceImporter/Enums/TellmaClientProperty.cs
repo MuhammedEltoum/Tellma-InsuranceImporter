@@ -1,0 +1,29 @@
+namespace Tellma.InsuranceImporter.Enums
+{
+    public enum TellmaClientProperty
+    {
+        AgentDefinitions,
+        Agents,
+        Resources,
+        Lookups,
+        Documents,
+        DocumentDefinitions,
+        LineDefinitions,
+        EntryTypes,
+        Accounts,
+        Centers,
+        LookupDefinitions,
+        ExchangeRates,
+        Users,
+        Roles,
+        Units,
+        Currencies,
+        Emails,
+        SmsMessages,
+        Outbox,
+        DashboardDefinitions,
+        ReportDefinitions,
+        PrintingTemplates,
+        ResourceDefinitions
+    }
+}

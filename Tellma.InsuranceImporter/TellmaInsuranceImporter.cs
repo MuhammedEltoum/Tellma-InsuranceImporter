@@ -1,0 +1,40 @@
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using System.Diagnostics;
+using Tellma.InsuranceImporter.Contract;
+
+namespace Tellma.InsuranceImporter
+{
+    public class TellmaInsuranceImporter
+    {
+        private readonly ILogger<TellmaService> _logger;
+        private readonly IImportService<Remittance> _remittanceService;
+        private readonly IImportService<Technical> _technicalService;
+        private readonly IImportService<Contract.ExchangeRate> _exchangeRateService;
+
+        public TellmaInsuranceImporter(ILogger<TellmaService> logger,
+            IImportService<Remittance> remittanceService,
+            IImportService<Technical> technicalService,
+            IImportService<Contract.ExchangeRate> exchangeRateService,
+            IOptions<TellmaOptions> options)
+        {
+            _logger = logger;
+            _exchangeRateService = exchangeRateService;
+            _remittanceService = remittanceService;
+            _technicalService = technicalService;
+        }
+
+        public async Task ImportToTellma(CancellationToken stoppingToken)
+        {
+            //await _exchangeRateService.Import(token);
+
+            var time = new Stopwatch();
+            time.Start();
+            //await _remittanceService.Import(stoppingToken);
+            //_logger.LogInformation($"remittance took {time.ElapsedMilliseconds / 1000} seconds!");
+            await _technicalService.Import(stoppingToken);
+            _logger.LogInformation($"technical took {time.ElapsedMilliseconds / 1000} seconds!");
+            time.Stop();
+        }
+    }
+}

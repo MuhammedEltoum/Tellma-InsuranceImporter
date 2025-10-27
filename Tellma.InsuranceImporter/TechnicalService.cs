@@ -1,0 +1,811 @@
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using System.Diagnostics.Contracts;
+using System.Linq;
+using Tellma.InsuranceImporter.Contract;
+using Tellma.InsuranceImporter.Enums;
+using Tellma.InsuranceImporter.Repository;
+using Tellma.Model.Application;
+
+namespace Tellma.InsuranceImporter
+{
+    public class TechnicalService : IImportService<Technical>
+    {
+        private readonly ITellmaService _service;
+        private readonly IWorksheetRepository<Technical> _repository;
+        private readonly ILogger<TellmaService> _logger;
+        public TechnicalService(IWorksheetRepository<Technical> repository, IOptions<TellmaOptions> options, ILogger<TellmaService> logger)
+        {
+            _logger = logger;
+            _service = new TellmaService(logger, options);
+            _repository = repository;
+        }
+        public async Task Import(CancellationToken cancellationToken)
+        {
+            //Start validation
+            var validTechnicalList = await _repository.GetWorksheets(cancellationToken);
+            string worksheetIds = String.Empty;
+
+            //Insurance Agent is null validation
+            var invalidAgents = validTechnicalList
+                .Where(t => String.IsNullOrWhiteSpace(t.AgentCode) )
+                .Select(t => t.WorksheetId)
+                .Distinct();
+            if (invalidAgents.Any())
+            {
+                validTechnicalList = validTechnicalList
+                    .Where(t => !invalidAgents.Contains(t.WorksheetId))
+                    .ToList();
+                int removedInvalidAgents = invalidAgents.Count();
+                worksheetIds = string.Join(", ", invalidAgents);
+                _logger.LogError($"Validation Error: ({removedInvalidAgents}) WorksheetId [{worksheetIds}] have an invalid insurance agent.");
+            }
+
+            //Contract validation
+            var invalidContracts = validTechnicalList
+                .Where(t => String.IsNullOrWhiteSpace(t.ContractCode) )
+                .Select(t => t.WorksheetId)
+                .Distinct();
+            if (invalidContracts.Any())
+            {
+                validTechnicalList = validTechnicalList
+                    .Where(t => !invalidContracts.Contains(t.WorksheetId))
+                    .ToList();
+                int removedInvalidContracts = invalidContracts.Count();
+                worksheetIds = string.Join(", ", invalidContracts);
+                _logger.LogError($"Validation Error: ({removedInvalidContracts}) WorksheetId [{worksheetIds}] have an invalid contract.");
+            }
+
+            //Direction validation
+            var invalidDirections = validTechnicalList
+            .Where(t => Math.Abs(t.Direction) != 1)
+            .Select(r => r.WorksheetId)
+            .Distinct();
+            if (invalidDirections.Any())
+            {
+                validTechnicalList = validTechnicalList
+                    .Where(t => !invalidDirections.Contains(t.WorksheetId))
+                    .ToList();
+
+                int removedInvalidDirection = invalidDirections.Count();
+                worksheetIds = string.Join(", ", invalidDirections);
+                _logger.LogError($"Validation Error: ({removedInvalidDirection}) WorksheetId [{worksheetIds}] have an invalid direction.");
+            }
+
+            //Technical type validation
+            var validTypes = validTechnicalList
+                .Where(t => t.WorksheetId.StartsWith("TW") || t.WorksheetId.StartsWith("RT") || t.WorksheetId.StartsWith("CW"))
+                .Select(t => t.WorksheetId)
+                .Distinct();
+            if (validTypes.Any())
+            {
+                var invalidTechnicalList = validTechnicalList
+                    .Where(t => !validTypes.Contains(t.WorksheetId))
+                    .ToList();
+                int removedInvalidTypes = invalidTechnicalList.Count();
+                worksheetIds = string.Join(", ", invalidTechnicalList);
+                _logger.LogError($"Validation Error: ({removedInvalidTypes}) WorksheetId [{worksheetIds}] have an invalid technical type.");
+                validTechnicalList = validTechnicalList
+                    .Where(t => validTypes.Contains(t.WorksheetId))
+                    .ToList();
+            }
+            var tenants = validTechnicalList
+                .Select(t => t.TenantCode)
+                .Distinct()
+                .ToList();
+            foreach (var tenantCode in tenants)
+            {
+                var claimsDocuments = new List<DocumentForSave>();
+                var technicalDocuments = new List<DocumentForSave>();
+                //To discuss with Ashraf.
+                //var rtDocuments = new List<DocumentForSave>();
+                int tenantId = 0;
+                switch (tenantCode)
+                {
+                    case "IR1":
+                        tenantId += 601;
+                        break;
+                    case "IR160":
+                        tenantId += 602;
+                        break;
+                    default:
+                        tenantId += 1303;
+                        break;
+                }
+                tenantId = 1303;
+                validTechnicalList = validTechnicalList
+                        .Where(t => t.TenantCode == tenantCode)
+                        .ToList();
+
+                //Will use batch validation for insurance agents, brokers, cedant, insured, insurer, channel.
+                var insuranceAgentsList = new List<Agent>();
+
+                //Insurance Agents validation
+                int insuranceAgentDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.AgentDefinitions.AsString(), TellmaEntityCode.InsuranceAgent.AsString(), token: cancellationToken);
+                var insuranceAgents = validTechnicalList
+                    .Select(a => new { Code = a.AgentCode, Name = a.AgentName })
+                    .Distinct()
+                    .Select(a => new Agent { Code = a.Code, Name = a.Name, Name2 = a.Name })
+                    .ToList();
+
+                if (insuranceAgents.Any())
+                {
+                    var insuranceAgentsResult = await SyncAgents(tenantId, TellmaEntityCode.InsuranceAgent.AsString(), insuranceAgents, cancellationToken);
+                    insuranceAgentsList.AddRange(insuranceAgentsResult);
+                }
+
+                //Broker validation
+                var brokerAgents = validTechnicalList
+                    .Where(c => !insuranceAgentsList.Select(ia => ia.Code).Contains(c.BrokerCode))
+                    .Select(a => new { Code = a.BrokerCode, Name = a.BrokerName })
+                    .Distinct()
+                    .Select(a => new Agent { Code = a.Code, Name = a.Name, Name2 = a.Name })
+                    .ToList();
+
+                if (brokerAgents.Any())
+                {
+                    var brokersResult = await SyncAgents(tenantId, TellmaEntityCode.InsuranceAgent.AsString(), brokerAgents, cancellationToken);
+                    insuranceAgentsList.AddRange(brokersResult);
+                }
+
+                //Channel validation
+                var channelAgents = validTechnicalList
+                    .Where(ia => !insuranceAgentsList.Select(ia => ia.Code).Contains(ia.ReinsurerCode))
+                    .Where(ia => !String.IsNullOrWhiteSpace(ia.ChannelCode) && !String.IsNullOrWhiteSpace(ia.ChannelName))
+                    .Select(ia => new { Code = ia.ChannelCode, Name = ia.ChannelName })
+                    .Distinct()
+                    .Select(ia => new Agent { Code = ia.Code, Name = ia.Name, Name2 = ia.Name })
+                    .ToList();
+                if (channelAgents.Any())
+                {
+                    var channelResult = await SyncAgents(tenantId, TellmaEntityCode.InsuranceAgent.AsString(), channelAgents, cancellationToken);
+                    insuranceAgentsList.AddRange(channelAgents);
+                }
+
+                //Cedant validation
+                var cedantAgents = validTechnicalList
+                    .Where(c => !insuranceAgentsList.Select(ia => ia.Code).Contains(c.CedantCode))
+                    .Where(c => !String.IsNullOrWhiteSpace(c.CedantCode) && !String.IsNullOrWhiteSpace(c.CedantName))
+                    .Select(c => new { Code = c.CedantCode, Name = c.CedantName })
+                    .Distinct()
+                    .Select(c => new Agent { Code = c.Code, Name = c.Name, Name2 = c.Name })
+                    .ToList();
+                if (cedantAgents.Any())
+                {
+                    var cedantResult = await SyncAgents(tenantId, TellmaEntityCode.InsuranceAgent.AsString(), cedantAgents, cancellationToken);
+                    insuranceAgentsList.AddRange(cedantAgents);
+                }
+
+                //Reinsurer validation
+                var reinsurerAgents = validTechnicalList
+                    .Where(ia => !insuranceAgentsList.Select(ia => ia.Code).Contains(ia.ReinsurerCode))
+                    .Where(ia => !String.IsNullOrWhiteSpace(ia.ReinsurerCode) && !String.IsNullOrWhiteSpace(ia.ReinsurerName))
+                    .Select(ia => new { Code = ia.ReinsurerCode, Name = ia.ReinsurerName })
+                    .Distinct()
+                    .Select(ia => new Agent { Code = ia.Code, Name = ia.Name, Name2 = ia.Name })
+                    .ToList();
+                if (reinsurerAgents.Any())
+                {
+                    var reinsurerResult = await SyncAgents(tenantId, TellmaEntityCode.InsuranceAgent.AsString(), reinsurerAgents, cancellationToken);
+                    insuranceAgentsList.AddRange(reinsurerAgents);
+                }
+
+                //Accounts Batch
+                var aAccountsCodes = validTechnicalList
+                        .Select(a => a.AAccount)
+                        .Distinct()
+                        .ToList();
+                var bAccountsCodes = validTechnicalList
+                        .Select(b => b.BAccount)
+                        .Distinct()
+                        .ToList();
+                aAccountsCodes.AddRange(bAccountsCodes);
+                var accountsCode = aAccountsCodes.Distinct();
+                string? accountsFilter = String.Join(" OR ", accountsCode.Select(a => $"Code = '{a}'"));
+                var accountsObjectResult = await _service.GetClientEntities(tenantId, TellmaClientProperty.Accounts.AsString(), filter: accountsFilter, token: cancellationToken);
+                var accountsResult = accountsObjectResult.ConvertAll(a => (Account)a);
+
+                //Business type validation
+                var businessTypes = validTechnicalList
+                        .Select(b => b.BusinessTypeCode)
+                        .Distinct()
+                        .ToList();
+                string? businessTypesFilter = String.Join(" OR ", businessTypes.Select(b => $"Code = '{b}'"));
+                businessTypesFilter = businessTypesFilter.Length < 1024 ? businessTypesFilter : null;
+                int businessTypeDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.LookupDefinitions.AsString(), TellmaEntityCode.BusinessType.AsString(), token: cancellationToken);
+                var businessTypesObjectResult = await _service.GetClientEntities(tenantId, TellmaClientProperty.Lookups.AsString(), businessTypeDefinitionId, businessTypesFilter, token: cancellationToken);
+                var businessTypesResult = businessTypesObjectResult.ConvertAll(bt => (Lookup)bt);
+                var missingBusinessTypes = validTechnicalList
+                        .Where(t => !businessTypesResult.Select(bt => bt.Code).Contains(t.BusinessTypeCode) && !String.IsNullOrWhiteSpace(t.BusinessTypeCode))
+                        .Select(t => t.WorksheetId)
+                        .ToList();
+                if (missingBusinessTypes.Any())
+                {
+                    validTechnicalList = validTechnicalList
+                        .Where(t => !missingBusinessTypes.Contains(t.WorksheetId))
+                        .ToList();
+
+                    int removedBusinessTypesCount = missingBusinessTypes.Count();
+                    worksheetIds = string.Join(", ", missingBusinessTypes);
+                    _logger.LogError($"Validation Error: ({removedBusinessTypesCount}) WorksheetIds [{worksheetIds}] business types do not exist in tellma.");
+                }
+
+                //Main business class validation
+                var mainBusinessClasses = validTechnicalList
+                        .Select(b => b.BusinessMainClassCode)
+                        .Distinct()
+                        .ToList();
+                string? mainBusinessClassesFilter = String.Join(" OR ", mainBusinessClasses.Select(b => $"Code = '{b}'"));
+                int mainBusinessClassDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.LookupDefinitions.AsString(), TellmaEntityCode.MainBusinessClass.AsString(), token: cancellationToken);
+                var mainBusinessClassesObjectResult = await _service.GetClientEntities(tenantId, TellmaClientProperty.Lookups.AsString(), mainBusinessClassDefinitionId, mainBusinessClassesFilter, token: cancellationToken);
+                var mainBusinessClassesResult = mainBusinessClassesObjectResult.ConvertAll(mbc => (Lookup)mbc);
+                var missingMainBusinessClasses = validTechnicalList
+                        .Where(t => !mainBusinessClassesResult.Select(mbc => mbc.Code).Contains(t.BusinessMainClassCode) && !String.IsNullOrWhiteSpace(t.BusinessMainClassCode))
+                        .Select(t => t.WorksheetId)
+                        .ToList();
+                if (missingMainBusinessClasses.Any())
+                {
+                    validTechnicalList = validTechnicalList
+                        .Where(t => !missingMainBusinessClasses.Contains(t.WorksheetId))
+                        .ToList();
+                    int removedMainBusinessClassesCount = missingMainBusinessClasses.Count();
+                    worksheetIds = string.Join(", ", missingMainBusinessClasses);
+                    _logger.LogError($"Validation Error: ({removedMainBusinessClassesCount}) WorksheetIds [{worksheetIds}] main business classes do not exist in tellma.");
+                }
+
+                //Risk countries batch
+                var riskCountries = validTechnicalList
+                        .Select(t => t.RiskCountry)
+                        .Distinct()
+                        .ToList();
+                string? riskCountriesFilter = String.Join(" OR ", riskCountries.Select(r => $"Code = '{r}'"));
+                riskCountriesFilter = riskCountriesFilter.Length < 1024 ? riskCountriesFilter : null;
+                int riskCountryDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.LookupDefinitions.AsString(), TellmaEntityCode.Citizenship.AsString(), token: cancellationToken);
+                var riskCountriesObjectResult = await _service.GetClientEntities(tenantId, TellmaClientProperty.Lookups.AsString(), riskCountryDefinitionId, riskCountriesFilter, token: cancellationToken);
+                var riskCountriesResult = riskCountriesObjectResult.ConvertAll(rc => (Lookup)rc);
+
+                //Entry types batch
+                var entryTypeConcepts = validTechnicalList
+                        .SelectMany(et => new[]
+                        {
+                            new {Concept = et.APurposeConcept},
+                            new {Concept = et.BPurposeConcept}
+                        })//filter out null concepts.
+                        .Distinct()
+                        .ToList();
+                string? entryTypesFilter = String.Join(" OR ", entryTypeConcepts.Select(et => $"Concept = '{et.Concept}'"));
+                var entryTypesObjectResult = await _service.GetClientEntities(tenantId, TellmaClientProperty.EntryTypes.AsString(), filter: entryTypesFilter, token: cancellationToken);
+                var entryTypesResult = entryTypesObjectResult.ConvertAll(et => (EntryType)et);
+
+                //Contracts validation
+                var dbContracts = validTechnicalList
+                        .Select(c => new
+                        {
+                            Code = c.ContractCode,
+                            Name = $"{c.ContractCode}: {c.ContractName}",
+                            Name2 = $"{c.ContractCode}: {c.ContractName}",
+                            Lookup1Id = businessTypesResult.FirstOrDefault(bt => bt.Code == c.BusinessTypeCode)?.Id,
+                            Lookup3Id = riskCountriesResult.FirstOrDefault(rc => rc.Code == c.RiskCountry)?.Id,
+                            FromDate = c.EffectiveDate,
+                            ToDate = c.ExpiryDate,
+                            Agent2Id = insuranceAgentsList.FirstOrDefault(ia => ia.Code == c.BrokerCode)?.Id,
+                            Description2 = $"Max closing date = {validTechnicalList
+                                            .Where(t => t.ContractCode == c.ContractCode)
+                                            .Max(c => c.ClosingDate):yyyy-MM-dd}"
+                        })
+                        .Distinct()
+                        .Select(c =>
+                        new Agent
+                        {
+                            Code = c.Code,
+                            Name = c.Name,
+                            Name2 = c.Name,
+                            Lookup1Id = c.Lookup1Id,
+                            Lookup3Id = c.Lookup3Id,
+                            FromDate = c.FromDate,
+                            ToDate = c.ToDate,
+                            Agent2Id = c.Agent2Id,
+                            Description = validTechnicalList.FirstOrDefault(v => v.ContractCode == c.Code)?.Description,
+                            Description2 = c.Description2
+                        })
+                        .ToList();
+
+                var contractsResult = await SyncAgents(tenantId, TellmaEntityCode.InsuranceContract.AsString(), dbContracts, cancellationToken);
+
+                //Partnership type batch
+                int partnersihpTypeDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.LookupDefinitions.AsString(), TellmaEntityCode.PartnershipTypes.AsString(), token: cancellationToken);
+                var partnershipTypeObjects = await _service.GetClientEntities(tenantId, TellmaClientProperty.Lookups.AsString(), partnersihpTypeDefinitionId, token: cancellationToken);
+                var partnershipTypesResult = partnershipTypeObjects.ConvertAll(l => (Lookup)l);
+
+
+                //Business partners
+                var globalReAgent = insuranceAgentsList.FirstOrDefault(ia => ia.Code == tenantCode);
+
+                if (globalReAgent == null)
+                {
+                    string filter = $"Code = '{tenantCode}'";
+                    var tenantAgent = await _service.GetClientEntities(tenantId, TellmaClientProperty.Agents.AsString(), insuranceAgentDefinitionId, filter, token: cancellationToken);
+                    globalReAgent = tenantAgent.ConvertAll(a => (Agent)a).FirstOrDefault();
+                }
+                int? globalReId = globalReAgent.Id;
+                string globalReName = globalReAgent.Name;
+                var cedantContracts = validTechnicalList
+                    .Where(c => !String.IsNullOrWhiteSpace(c.CedantCode))
+                    .Select(c => new
+                    {
+                        Code = "-",
+                        Name = insuranceAgentsList.FirstOrDefault(ia => ia.Code == c.CedantCode).Name,
+                        Agent1Id = contractsResult.FirstOrDefault(ct => ct.Code == c.ContractCode).Id,
+                        Agent2Id = insuranceAgentsList.FirstOrDefault(ia => ia.Code == c.CedantCode).Id,
+                        Lookup2Id = partnershipTypesResult.FirstOrDefault(p => p.Code == "Cedant").Id
+                    })
+                    .Distinct()
+                    .Select(c => new Agent
+                    {
+                        Code = c.Code,
+                        Name = c.Name,
+                        Agent1Id = c.Agent1Id,
+                        Agent2Id = c.Agent2Id,
+                        Lookup1Id = c.Lookup2Id
+                    })
+                    .ToList();
+
+                var channelContracts = validTechnicalList
+                    .Where(c => !String.IsNullOrWhiteSpace(c.ChannelCode))
+                    .Select(c => new
+                    {
+                        Code = "-",
+                        Name = insuranceAgentsList.FirstOrDefault(ia => ia.Code == c.ChannelCode).Name,
+                        Agent1Id = contractsResult.FirstOrDefault(ct => ct.Code == c.ContractCode).Id,
+                        Agent2Id = insuranceAgentsList.FirstOrDefault(ia => ia.Code == c.ChannelCode).Id,
+                        Lookup1Id = partnershipTypesResult.FirstOrDefault(p => p.Code == "BrokerCh").Id
+                    })
+                    .Distinct()
+                    .Select(c => new Agent
+                    {
+                        Code = c.Code,
+                        Name = c.Name,
+                        Agent1Id = c.Agent1Id,
+                        Agent2Id = c.Agent2Id,
+                        Lookup1Id = c.Lookup1Id
+                    })
+                    .ToList();
+
+                var insuredContracts = validTechnicalList
+                    .Where(c => !String.IsNullOrWhiteSpace(c.ReinsurerCode))
+                    .Select(c => new
+                    {
+                        Code = "-",
+                        Name = insuranceAgentsList.FirstOrDefault(ia => ia.Code == c.ReinsurerCode).Name,
+                        Agent1Id = contractsResult.FirstOrDefault(ct => ct.Code == c.ContractCode).Id,
+                        Agent2Id = insuranceAgentsList.FirstOrDefault(ia => ia.Code == c.ReinsurerCode).Id,
+                        Lookup1Id = partnershipTypesResult.FirstOrDefault(p => p.Code == "Insured").Id
+                    })
+                    .Distinct()
+                    .Select(c => new Agent
+                    {
+                        Code = c.Code,
+                        Name = c.Name,
+                        Agent1Id = c.Agent1Id,
+                        Agent2Id = c.Agent2Id,
+                        Lookup1Id = c.Lookup1Id
+                    })
+                    .ToList();
+
+                var reinsurerContracts = validTechnicalList
+                    .Select(c => new
+                    {
+                        Code = "-",
+                        Name = globalReName,
+                        Agent1Id = contractsResult.FirstOrDefault(ct => ct.Code == c.ContractCode).Id,
+                        Agent2Id = globalReId,
+                        Lookup1Id = partnershipTypesResult.FirstOrDefault(p => p.Code == "Reinsurer").Id
+                    })
+                    .Distinct()
+                    .Select(c => new Agent
+                    {
+                        Code = c.Code,
+                        Name = c.Name,
+                        Agent1Id = c.Agent1Id,
+                        Agent2Id = c.Agent2Id,
+                        Lookup1Id = c.Lookup1Id
+                    })
+                    .ToList();
+
+                var businessPartners = cedantContracts;
+                businessPartners.AddRange(channelContracts);
+                businessPartners.AddRange(insuredContracts);
+                businessPartners.AddRange(reinsurerContracts);
+                
+                businessPartners = businessPartners
+                    .Where(bp => bp.Agent1Id != null && bp.Agent2Id != null && bp.Lookup1Id != null)
+                    .OrderBy(pb => pb.Agent1Id)
+                    .ToList();
+                var businessPartnersResult = await SyncAgents(tenantId, TellmaEntityCode.BusinessPartner.AsString(), businessPartners, cancellationToken);
+
+                //Customer account validation
+                var dbCustomerAccounts = validTechnicalList
+                    .Select(cstmr => new
+                        {
+                            Code = $"{cstmr.ContractCode}-{cstmr.BusinessMainClassCode}-{cstmr.AgentCode}",
+                            Name = $"{cstmr.ContractCode}-{cstmr.BusinessMainClassCode}-{cstmr.AgentCode}: {cstmr.ContractName}",
+                            Name2 = $"{cstmr.ContractCode}-{cstmr.BusinessMainClassCode}-{cstmr.AgentCode}: {cstmr.ContractName}",
+                            Agent1Id = insuranceAgentsList.FirstOrDefault(ia => ia.Code == cstmr.AgentCode)?.Id,
+                            Agent2Id = contractsResult.FirstOrDefault(c => c.Code == cstmr.ContractCode)?.Id,
+                            Lookup2Id = mainBusinessClassesResult.FirstOrDefault(mbc => mbc.Code == cstmr.BusinessMainClassCode)?.Id,
+                        })
+                    .Distinct()
+                    .Select(cstmr => 
+                        new Agent
+                        {
+                            Code = cstmr.Code,
+                            Name = cstmr.Name,
+                            Name2 = cstmr.Name2,
+                            Agent1Id = cstmr.Agent1Id,
+                            Agent2Id = cstmr.Agent2Id,
+                            Lookup2Id = cstmr.Lookup2Id,
+                        })
+                        .ToList();
+                var customerAccResult = await SyncAgents(tenantId, TellmaEntityCode.TradeReceivableAccount.AsString(), dbCustomerAccounts, cancellationToken);
+                //End of validation
+
+                if (validTechnicalList.Count == 0)
+                {
+                    _logger.LogWarning($"No new technical records to sync!");
+                    return;
+                }
+                
+                //start import
+                int techDocDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.DocumentDefinitions.AsString(), TellmaEntityCode.TechnicalWorksheet.AsString(), token: cancellationToken);
+                int claimDocDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.DocumentDefinitions.AsString(), TellmaEntityCode.ClaimWorksheet.AsString(), token: cancellationToken);
+                
+                int lineDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.LineDefinitions.AsString(), TellmaEntityCode.ManualLine.AsString(), token: cancellationToken);
+
+                string operationCenterCode = TellmaEntityCode.OperationCenter.AsString();
+                int operationCenterId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.Centers.AsString(), operationCenterCode, token: cancellationToken);
+
+                int inwardOutwardDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.LookupDefinitions.AsString(), TellmaEntityCode.TechnicalInOutward.AsString(), token: cancellationToken);
+                int inwardLookupId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.Lookups.AsString(), TellmaEntityCode.Inward.AsString(), inwardOutwardDefinitionId, token: cancellationToken);
+                int outwardLookupId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.Lookups.AsString(), TellmaEntityCode.Outward.AsString(), inwardOutwardDefinitionId, token: cancellationToken);
+
+                foreach (var technical in validTechnicalList)
+                {
+                    if (validTechnicalList.Count() == 0)
+                    {
+                        _logger.LogWarning($"No valid worksheet records for tenant {tenantCode}!");
+                        return;
+                    }
+
+                    int inwardOutwardLookupId = technical.IsInward ? inwardLookupId : outwardLookupId;
+
+                    int serialNumber = Convert.ToInt32(technical.WorksheetId?.Substring(2));
+
+                    string memo = technical.TechnicalNotes ?? "-";
+
+                    //for memo tellma validation 255 char
+                    if (memo.Length > 255)
+                    {
+                        _logger.LogWarning($"Memo for worksheet {technical.WorksheetId} exceeds 255 characters and will be truncated.");
+                        memo = memo.Substring(0, 255);
+                    }
+
+                    string customerAccCode = $"{technical.ContractCode}-{technical.BusinessMainClassCode}-{technical.AgentCode}" ;
+                    int? customerAccId = customerAccResult.FirstOrDefault(ca => ca.Code == customerAccCode)?.Id ?? 0;
+                    customerAccId = customerAccId == 0 ? await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.Agents.AsString(), customerAccCode, token: cancellationToken) : customerAccId;
+
+                    int nullAgentId = 369;
+
+                    int accountAId = accountsResult.FirstOrDefault(a => a.Code == technical.AAccount)?.Id ?? 0;
+                    int accountBId = accountsResult.FirstOrDefault(a => a.Code == technical.BAccount)?.Id ?? 0;
+
+                    int? entryTypeAId = entryTypesResult.FirstOrDefault(et => et.Concept == technical.APurposeConcept)?.Id;
+                    int? entryTypeBId = entryTypesResult.FirstOrDefault(et => et.Concept == technical.BPurposeConcept)?.Id;
+
+                    var entriesList = new List<EntryForSave> {
+                            new EntryForSave
+                            {
+                                //A Account
+                                AccountId = accountAId,
+                                EntryTypeId = entryTypeAId,
+                                Direction = technical.ASign == "Debit" ? (short)1 : (short)-1,
+                                Value = technical.ValueFc2,
+                                MonetaryValue = technical.ContractAmount,
+                                AgentId = !technical.ATaxAccount ? customerAccId : nullAgentId,
+                                NotedAgentId = technical.ATaxAccount ? customerAccId : null,
+                                CurrencyId = technical.ContractCurrencyId,
+                                CenterId = operationCenterId,
+                                NotedDate = technical.AHasNotedDate ? technical.NotedDate : null,
+                                Time1 = technical.EffectiveDate,
+                                Time2 = technical.ExpiryDate
+                            },
+                            new EntryForSave
+                            {
+                                //B Account
+                                AccountId = accountBId,
+                                EntryTypeId = entryTypeBId,
+                                Direction = technical.BSign == "Debit" ? (short)1 : (short)-1,
+                                Value = technical.ValueFc2,
+                                MonetaryValue = technical.ContractAmount,
+                                CurrencyId = technical.ContractCurrencyId,
+                                AgentId = !technical.BTaxAccount ? customerAccId : nullAgentId,
+                                NotedAgentId = technical.BTaxAccount ? customerAccId : null,
+                                CenterId = operationCenterId,
+                                NotedDate = technical.BHasNotedDate ? technical.NotedDate : null,
+                                Time1 = technical.EffectiveDate,
+                                Time2 = technical.ExpiryDate
+                            }
+                        };
+
+                    if (entriesList[0].Direction < 0)
+                        entriesList.Reverse();
+
+                    DocumentForSave document;
+
+                    if(technicalDocuments.Any(t => t.SerialNumber == serialNumber) || claimsDocuments.Any(t => t.SerialNumber == serialNumber)) //document exist in collection.
+                    {
+                        if (technical.WorksheetId.StartsWith("TW"))
+                        {
+                            document = technicalDocuments.FirstOrDefault(t => t.SerialNumber == serialNumber);
+                            document.Lines[0].Entries.AddRange(entriesList);
+                        }
+
+                        if (technical.WorksheetId.StartsWith("CW"))
+                        {
+                            document = claimsDocuments.FirstOrDefault(t => t.SerialNumber == serialNumber);
+                            document.Lines[0].Entries.AddRange(entriesList);
+                        }
+                    }
+                    else
+                    {
+                        document = new DocumentForSave //document is new.
+                        {
+                            Id = technical?.TellmaDocumentId ?? 0,
+                            SerialNumber = serialNumber,
+                            PostingDate = technical?.PostingDate,
+                            PostingDateIsCommon = true,
+                            Lookup1Id = inwardOutwardLookupId,
+                            Memo = memo,
+                            MemoIsCommon = true,
+                            CenterIsCommon = true,
+                            Lines = new List<LineForSave>()
+                        };
+                        document.Lines.Add(
+                            new LineForSave
+                            {
+                                DefinitionId = lineDefinitionId,
+                                Entries = entriesList
+                            }
+                        );
+
+                        if (technical.WorksheetId.StartsWith("TW"))
+                            technicalDocuments.Add(document);
+                    
+                        if (technical.WorksheetId.StartsWith("CW"))
+                            claimsDocuments.Add(document);
+                    }
+                }
+                try
+                {
+                    if(technicalDocuments.Count > 0)
+                    {
+                        var techincalDocsResult = await _service.SaveDocuments(tenantId, techDocDefinitionId, technicalDocuments, cancellationToken);
+                        var technicalRecords = techincalDocsResult
+                            .Select(r => new Technical
+                            {
+                                WorksheetId = $"TW{r.SerialNumber}",
+                                TellmaDocumentId = r.Id
+                            });
+
+                        await _repository.UpdateDocumentIds(tenantCode, technicalRecords, cancellationToken);
+                        var documentIds = technicalRecords.Select(r => r.TellmaDocumentId).ToList();
+                        await _service.CloseDocuments(tenantId, techDocDefinitionId, documentIds, cancellationToken);
+                        await _repository.UpdateImportedWorksheets(tenantCode, technicalRecords, cancellationToken);
+                        _logger.LogInformation($"Technical import finished!");
+                    }
+
+                    if(claimsDocuments.Count > 0)
+                    {
+                        var claimsDocsResult = await _service.SaveDocuments(tenantId, claimDocDefinitionId, claimsDocuments, cancellationToken);
+                        var technicalRecords = claimsDocsResult
+                            .Select(r => new Technical
+                            {
+                                WorksheetId = $"CW{r.SerialNumber}",
+                                TellmaDocumentId = r.Id
+                            });
+
+                        await _repository.UpdateDocumentIds(tenantCode, technicalRecords, cancellationToken);
+                        var documentIds = technicalRecords.Select(r => r.TellmaDocumentId).ToList();
+                        await _service.CloseDocuments(tenantId, techDocDefinitionId, documentIds, cancellationToken);
+                        await _repository.UpdateImportedWorksheets(tenantCode, technicalRecords, cancellationToken);
+                        _logger.LogInformation($"Claims import finished!");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    //continue insurance upload.
+                    _logger.LogError($"An error occured while importing technicals. \r {ex.ToString()}");
+                }
+            }
+        }
+        
+        private async Task<List<Agent>> SyncAgents(int tenantId, string definitionCode, List<Agent> dbAgents, CancellationToken cancellationToken)
+        {
+            var dbAgentsCopy = dbAgents.Where(agent => !String.IsNullOrWhiteSpace(agent.Code)).ToList();
+            int serial = 0;
+
+            int agentDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.AgentDefinitions.AsString(), definitionCode, token: cancellationToken);
+
+            //Will use batch validation for agents.
+            var agentsCodesFromDB = dbAgentsCopy
+                .Select(t => t.Code)
+                .ToList();
+            string? batchFilter = String.Join(" OR ", agentsCodesFromDB.Select(t => $"Code = '{t}'"));
+            batchFilter = batchFilter.Length < 1024 ? batchFilter : null;
+            var agentsObjectResult = await _service.GetClientEntities(tenantId, TellmaClientProperty.Agents.AsString(), agentDefinitionId, batchFilter, token: cancellationToken);
+
+            var agentsResult = agentsObjectResult.ConvertAll(agent => (Agent)agent);
+
+            if (definitionCode == "BusinessPartner")
+                serial = await _service.GetAgentMaxSerialNumber(tenantId, agentDefinitionId, cancellationToken);
+            
+            //Remove agents from dbAgentsCopy that are already existing in tellma with same properties.
+            foreach (var dbAgent in dbAgentsCopy)
+            {
+                if(agentsResult.Any(tellmaAgent => tellmaAgent.Code == dbAgent.Code
+                    && (tellmaAgent.Name == dbAgent.Name || tellmaAgent.Name == $"{dbAgent.Name} - {dbAgent.Code}")
+                    && (tellmaAgent.Name2 == dbAgent.Name2 || tellmaAgent.Name2 == $"{dbAgent.Name2} - {dbAgent.Code}")
+                    && tellmaAgent.Agent1Id == dbAgent.Agent1Id
+                    && tellmaAgent.Agent2Id == dbAgent.Agent2Id
+                    && tellmaAgent.Lookup1Id == dbAgent.Lookup1Id
+                    && tellmaAgent.Lookup2Id == dbAgent.Lookup2Id
+                    && tellmaAgent.FromDate?.ToString("yyyy-MM-dd") == dbAgent.FromDate?.ToString("yyyy-MM-dd")
+                    && tellmaAgent.ToDate?.ToString("yyyy-MM-dd") == dbAgent.ToDate?.ToString("yyyy-MM-dd")
+                    && ((tellmaAgent.Description == dbAgent.Description) || (String.IsNullOrWhiteSpace(tellmaAgent.Description) && String.IsNullOrWhiteSpace(dbAgent.Description))) 
+                    && tellmaAgent.Description2 == dbAgent.Description2))
+                {
+                    dbAgentsCopy = dbAgentsCopy.Where(a => a.Code != dbAgent.Code).ToList();
+                }
+            }
+
+            if (dbAgentsCopy.Count == 0)
+            {
+                _logger.LogInformation($"{definitionCode}/{agentDefinitionId} has no new agents!");
+                return agentsResult;
+
+            }
+
+            //Update tellma agents with updated agents from DB or create new agents from DB.
+            var agentsToCreate = new List<AgentForSave>();
+            var agentsToUpdate = new List<AgentForSave>();
+
+            foreach (var dbAgent in dbAgentsCopy)
+            {
+                string code = dbAgent.Code;
+                string agentName = String.Empty;
+                int? agent1Id = null;
+                int? agent2Id = null;
+                int? lookup1Id = null;
+                int? lookup2Id = null;
+                int? lookup3Id = null;
+                DateTime? fromDate = null;
+                DateTime? toDate = null;
+                string? description = null;
+                string? description2 = null;
+
+                var tellmaAgent = agentsResult.FirstOrDefault(a => a.Code == code);
+
+                switch (definitionCode)
+                {
+                    case "InsuranceAgent":
+                        agentName = (dbAgent.Name == tellmaAgent?.Name) ? tellmaAgent.Name : $"{dbAgent.Name} - {code}";
+                        break;
+
+                    case "InsuranceContract":
+                        agentName = (dbAgent.Name == tellmaAgent?.Name) ? tellmaAgent.Name : dbAgent.Name;
+                        lookup1Id = dbAgent.Lookup1Id; // Business Type
+                        lookup3Id = dbAgent.Lookup3Id; // Risk Country
+                        agent2Id = dbAgent.Agent2Id;   // Broker
+                        description = dbAgent.Description; // Description
+                        description2 = dbAgent.Description2; // Final closing date
+                        fromDate = dbAgent.FromDate;
+                        toDate = dbAgent.ToDate;
+                        break;
+
+                    case "TradeReceivableAccount":
+                        agentName = (dbAgent.Name == tellmaAgent?.Name) ? tellmaAgent.Name : dbAgent.Name;
+                        agent1Id = dbAgent.Agent1Id; // Insurance Agent
+                        agent2Id = dbAgent.Agent2Id; // Contract
+                        lookup2Id = dbAgent.Lookup2Id; // Main Business Class
+                        break;
+
+                    case "BusinessPartner":
+                        agent1Id = dbAgent.Agent1Id; // Contract
+                        agent2Id = dbAgent.Agent2Id; // Partner Agent
+                        lookup1Id = dbAgent.Lookup1Id; // Partnership Type
+
+                        tellmaAgent = agentsResult.FirstOrDefault(tellmaAgent => tellmaAgent.Agent1Id == dbAgent.Agent1Id 
+                                                && tellmaAgent.Agent2Id == dbAgent.Agent2Id 
+                                                && tellmaAgent.Lookup1Id == dbAgent.Lookup1Id);
+                        
+                        if (tellmaAgent != null)
+                        {
+                            code = tellmaAgent.Code;
+                            agentName = tellmaAgent.Name;
+                            break;
+                        }
+
+                        code = "BP" + (++serial).ToString("00000");
+                        agentName = $"{code}: {dbAgent.Name}";
+                        break;
+
+                    default:
+                        throw new InvalidOperationException($"Unknown agent definition code: {definitionCode}");
+                }
+
+                if (tellmaAgent == null)
+                {
+                    // Create new agent
+                    agentsToCreate.Add(new AgentForSave
+                    {
+                        Code = code,
+                        Name = agentName,
+                        Name2 = agentName,
+                        Agent1Id = agent1Id,
+                        Agent2Id = agent2Id,
+                        Lookup1Id = lookup1Id,
+                        Lookup3Id = lookup3Id,
+                        FromDate = fromDate,
+                        ToDate = toDate,
+                        Description = description,
+                        Description2 = description2
+                    });
+                }
+                else
+                {
+                    agentsToUpdate.Add(new AgentForSave
+                    {
+                        Id = tellmaAgent.Id,
+                        Code = code,
+                        Name = agentName,
+                        Name2 = agentName,
+                        Agent1Id = agent1Id,
+                        Agent2Id = agent2Id,
+                        Lookup1Id = lookup1Id,
+                        Lookup2Id = lookup2Id,
+                        Lookup3Id = lookup3Id,
+                        FromDate = fromDate,
+                        ToDate = toDate,
+                        Description = description,
+                        Description2 = description2
+                    });
+                    
+                }
+            }
+
+            if (agentsToCreate.Count == 0 && agentsToUpdate.Count == 0)
+            {
+                _logger.LogInformation($"{definitionCode} Agent sync completed! No changes detected.");
+                return agentsResult;
+            }
+
+            if (agentsToUpdate.Count != 0)
+            {
+                _logger.LogInformation($"Updating {agentsToUpdate.Count} existing {definitionCode} agents...");
+            }
+
+            if(agentsToCreate.Count != 0)
+            {
+                _logger.LogInformation($"Creating {agentsToCreate.Count} new {definitionCode} agents...");
+            }
+
+
+            agentsToCreate.AddRange(agentsToUpdate);
+            
+            var createdAgents = await _service.SaveAgents(tenantId, agentDefinitionId, agentsToCreate, cancellationToken);
+            _logger.LogInformation($"{definitionCode} Agent sync completed!");
+            agentsResult.AddRange(createdAgents);
+
+            return agentsResult;
+        }
+    }
+}
