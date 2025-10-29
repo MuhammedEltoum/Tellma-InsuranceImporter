@@ -9,3 +9,15 @@ C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tell
 C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tellma.InsuranceImporter\Tellma.InsuranceImporter.Contract\obj\Debug\net9.0\refint\Tellma.InsuranceImporter.Contract.dll
 C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tellma.InsuranceImporter\Tellma.InsuranceImporter.Contract\obj\Debug\net9.0\Tellma.InsuranceImporter.Contract.pdb
 C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tellma.InsuranceImporter\Tellma.InsuranceImporter.Contract\obj\Debug\net9.0\ref\Tellma.InsuranceImporter.Contract.dll
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.Contract\bin\Debug\net9.0\Tellma.InsuranceImporter.Contract.deps.json
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.Contract\bin\Debug\net9.0\Tellma.InsuranceImporter.Contract.dll
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.Contract\bin\Debug\net9.0\Tellma.InsuranceImporter.Contract.pdb
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.Contract\obj\Debug\net9.0\Tellma.InsuranceImporter.Contract.GeneratedMSBuildEditorConfig.editorconfig
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.Contract\obj\Debug\net9.0\Tellma.InsuranceImporter.Contract.AssemblyInfoInputs.cache
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.Contract\obj\Debug\net9.0\Tellma.InsuranceImporter.Contract.AssemblyInfo.cs
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.Contract\obj\Debug\net9.0\Tellma.InsuranceImporter.Contract.csproj.CoreCompileInputs.cache
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.Contract\obj\Debug\net9.0\Tellma.InsuranceImporter.Contract.sourcelink.json
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.Contract\obj\Debug\net9.0\Tellma.InsuranceImporter.Contract.dll
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.Contract\obj\Debug\net9.0\refint\Tellma.InsuranceImporter.Contract.dll
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.Contract\obj\Debug\net9.0\Tellma.InsuranceImporter.Contract.pdb
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.Contract\obj\Debug\net9.0\ref\Tellma.InsuranceImporter.Contract.dll

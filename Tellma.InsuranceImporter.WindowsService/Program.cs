@@ -17,7 +17,7 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddScoped<IExchangeRatesRepository, ExchangeRatesRepository>();
         services.AddScoped<IWorksheetRepository<Remittance>, RemittanceRepository>();
         services.AddScoped<IWorksheetRepository<Technical>, TechnicalRepository>();
-        services.AddScoped<TellmaService>();
+        services.AddScoped<ITellmaService,TellmaService>();
         services.AddScoped<IImportService<ExchangeRate>, ExchangeRatesService>();
         services.AddScoped<IImportService<Remittance>, RemittanceService>();
         services.AddScoped<IImportService<Technical>, TechnicalService>();

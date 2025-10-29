@@ -7,12 +7,12 @@ namespace Tellma.InsuranceImporter
 {
     public class TellmaInsuranceImporter
     {
-        private readonly ILogger<TellmaService> _logger;
+        private readonly ILogger<TellmaInsuranceImporter> _logger;
         private readonly IImportService<Remittance> _remittanceService;
         private readonly IImportService<Technical> _technicalService;
         private readonly IImportService<Contract.ExchangeRate> _exchangeRateService;
 
-        public TellmaInsuranceImporter(ILogger<TellmaService> logger,
+        public TellmaInsuranceImporter(ILogger<TellmaInsuranceImporter> logger,
             IImportService<Remittance> remittanceService,
             IImportService<Technical> technicalService,
             IImportService<Contract.ExchangeRate> exchangeRateService,

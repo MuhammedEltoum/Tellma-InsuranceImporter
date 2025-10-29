@@ -10,3 +10,16 @@ C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tell
 C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tellma.InsuranceImporter\Tellma.Utilities.EmailLogger\obj\Debug\net9.0\refint\Tellma.Utilities.EmailLogger.dll
 C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tellma.InsuranceImporter\Tellma.Utilities.EmailLogger\obj\Debug\net9.0\Tellma.Utilities.EmailLogger.pdb
 C:\Users\muham\Desktop\Requiremnt\BananIT\Projects\Tellma.InsuranseImporter\Tellma.InsuranceImporter\Tellma.Utilities.EmailLogger\obj\Debug\net9.0\ref\Tellma.Utilities.EmailLogger.dll
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.Utilities.EmailLogger\bin\Debug\net9.0\Tellma.Utilities.EmailLogger.deps.json
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.Utilities.EmailLogger\bin\Debug\net9.0\Tellma.Utilities.EmailLogger.dll
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.Utilities.EmailLogger\bin\Debug\net9.0\Tellma.Utilities.EmailLogger.pdb
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.Utilities.EmailLogger\obj\Debug\net9.0\Tellma.Utilities.EmailLogger.csproj.AssemblyReference.cache
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.Utilities.EmailLogger\obj\Debug\net9.0\Tellma.Utilities.EmailLogger.GeneratedMSBuildEditorConfig.editorconfig
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.Utilities.EmailLogger\obj\Debug\net9.0\Tellma.Utilities.EmailLogger.AssemblyInfoInputs.cache
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.Utilities.EmailLogger\obj\Debug\net9.0\Tellma.Utilities.EmailLogger.AssemblyInfo.cs
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.Utilities.EmailLogger\obj\Debug\net9.0\Tellma.Utilities.EmailLogger.csproj.CoreCompileInputs.cache
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.Utilities.EmailLogger\obj\Debug\net9.0\Tellma.Utilities.EmailLogger.sourcelink.json
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.Utilities.EmailLogger\obj\Debug\net9.0\Tellma.Utilities.EmailLogger.dll
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.Utilities.EmailLogger\obj\Debug\net9.0\refint\Tellma.Utilities.EmailLogger.dll
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.Utilities.EmailLogger\obj\Debug\net9.0\Tellma.Utilities.EmailLogger.pdb
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.Utilities.EmailLogger\obj\Debug\net9.0\ref\Tellma.Utilities.EmailLogger.dll

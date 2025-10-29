@@ -4,6 +4,7 @@ using System.Data;
 using System.Diagnostics;
 using Tellma.Api.Dto;
 using Tellma.Client;
+using Tellma.InsuranceImporter.Enums;
 using Tellma.Model.Application;
 
 namespace Tellma.InsuranceImporter
@@ -46,7 +47,7 @@ namespace Tellma.InsuranceImporter
             var crudClient = GetCrudClient(tellmaClient, clientProperty, definitionId);
             var getEntitiesMethod = crudClient.GetType().GetMethod("GetEntities");
             var filterType = clientProperty == nameof(TellmaClient.ApplicationClientBehavior.EntryTypes) ? "Concept = " : "Code = ";
-            if(isBankAccount.HasValue)
+            if (isBankAccount.HasValue)
                 filterType = isBankAccount.Value ? "Text3 = " : filterType;
             var getArgs = new GetArguments { Filter = $"{filterType}'{code}'", Top = 1 };
             var getEntitiesArgs = new object[] { new Request<GetArguments> { Arguments = getArgs }, token };
@@ -56,7 +57,7 @@ namespace Tellma.InsuranceImporter
             var result = resultProperty.GetValue(task);
             var dataProp = result.GetType().GetProperty("Data");
             var data = (System.Collections.IEnumerable)dataProp.GetValue(result);
-            
+
             foreach (var entity in data)
             {
                 var idProp = entity.GetType().GetProperty("Id");
@@ -73,7 +74,7 @@ namespace Tellma.InsuranceImporter
             var tellmaClient = _client.Application(tenantId);
             var crudClient = GetCrudClient(tellmaClient, clientProperty, entityDefinitionId);
             var getEntitiesMethod = crudClient.GetType().GetMethod("GetEntities");
-            
+
             int pageSize = 500;
             int skip = 0;
 
@@ -107,7 +108,7 @@ namespace Tellma.InsuranceImporter
         // Reflection-based CrudClient factory
         private object GetCrudClient(TellmaClient.ApplicationClientBehavior client, string propertyName, int? definitionId = null)
         {
-            if(definitionId.HasValue)
+            if (definitionId.HasValue)
             {
                 var method = client.GetType().GetMethod(propertyName, new Type[] { typeof(int) });
                 if (method == null)
@@ -120,6 +121,195 @@ namespace Tellma.InsuranceImporter
                 throw new ArgumentException($"No client named {propertyName} found.");
             return prop.GetValue(client);
         }
+
+        public async Task<List<Agent>> SyncAgents(int tenantId, string definitionCode, List<Agent> dbAgents, CancellationToken cancellationToken)
+        {
+            var dbAgentsCopy = dbAgents.Where(agent => !String.IsNullOrWhiteSpace(agent.Code)).ToList();
+            bool isBusinessPartnerAgent = definitionCode == TellmaEntityCode.BusinessPartner.AsString() ? true : false;
+            int serial = 0;
+
+            int agentDefinitionId = await GetIdByCodeAsync(tenantId, TellmaClientProperty.AgentDefinitions.AsString(), definitionCode, token: cancellationToken);
+
+            //Will use batch validation for agents.
+            var agentsCodesFromDB = dbAgentsCopy
+                .Select(t => t.Code)
+                .ToList();
+            string? batchFilter = String.Join(" OR ", agentsCodesFromDB.Select(t => $"Code = '{t}'"));
+
+            if (isBusinessPartnerAgent)
+            {
+                batchFilter = String.Join(" OR ", dbAgents.Select(bp => $"(Agent1Id={bp.Agent1Id} AND Agent2Id={bp.Agent2Id} AND Lookup1Id={bp.Lookup1Id})"));
+                serial = await GetAgentMaxSerialNumber(tenantId, agentDefinitionId, cancellationToken);
+            }
+
+            batchFilter = batchFilter.Length < 1024 ? batchFilter : null;
+            var agentsObjectResult = await GetClientEntities(tenantId, TellmaClientProperty.Agents.AsString(), agentDefinitionId, batchFilter, cancellationToken: cancellationToken);
+
+            var agentsResult = agentsObjectResult.ConvertAll(agent => (Agent)agent);
+
+            //Remove agents from dbAgentsCopy that are already existing in tellma with same properties.
+            foreach (var dbAgent in dbAgentsCopy)
+            {
+                if (agentsResult.Any(tellmaAgent => (tellmaAgent.Code == dbAgent.Code
+                    && (tellmaAgent.Name == dbAgent.Name || tellmaAgent.Name == $"{dbAgent.Name} - {dbAgent.Code}")
+                    && (tellmaAgent.Name2 == dbAgent.Name2 || tellmaAgent.Name2 == $"{dbAgent.Name2} - {dbAgent.Code}")
+                    && tellmaAgent.Agent1Id == dbAgent.Agent1Id
+                    && tellmaAgent.Agent2Id == dbAgent.Agent2Id
+                    && tellmaAgent.Lookup1Id == dbAgent.Lookup1Id
+                    && tellmaAgent.Lookup2Id == dbAgent.Lookup2Id
+                    && tellmaAgent.FromDate?.ToString("yyyy-MM-dd") == dbAgent.FromDate?.ToString("yyyy-MM-dd")
+                    && tellmaAgent.ToDate?.ToString("yyyy-MM-dd") == dbAgent.ToDate?.ToString("yyyy-MM-dd")
+                    && ((tellmaAgent.Description == dbAgent.Description) || (String.IsNullOrWhiteSpace(tellmaAgent.Description) && String.IsNullOrWhiteSpace(dbAgent.Description)))
+                    && tellmaAgent.Description2 == dbAgent.Description2) 
+                    || (isBusinessPartnerAgent && tellmaAgent.Agent1Id == dbAgent.Agent1Id //business partner check
+                    && tellmaAgent.Agent2Id == dbAgent.Agent2Id
+                    && tellmaAgent.Lookup1Id == dbAgent.Lookup1Id)))
+                {
+                    dbAgentsCopy = dbAgentsCopy.Where(a => a.Code != dbAgent.Code).ToList();
+                }
+            }
+
+            if (dbAgentsCopy.Count == 0)
+            {
+                _logger.LogInformation($"{definitionCode}/{agentDefinitionId} has no new agents!");
+                return agentsResult;
+
+            }
+
+            //Update tellma agents with updated agents from DB or create new agents from DB.
+            var agentsToCreate = new List<AgentForSave>();
+            var agentsToUpdate = new List<AgentForSave>();
+
+            foreach (var dbAgent in dbAgentsCopy)
+            {
+                string code = dbAgent.Code;
+                string agentName = String.Empty;
+                int? agent1Id = null;
+                int? agent2Id = null;
+                int? lookup1Id = null;
+                int? lookup2Id = null;
+                int? lookup3Id = null;
+                DateTime? fromDate = null;
+                DateTime? toDate = null;
+                string? description = null;
+                string? description2 = null;
+
+                var tellmaAgent = agentsResult.FirstOrDefault(a => a.Code == code);
+
+                switch (definitionCode)
+                {
+                    case "InsuranceAgent":
+                        agentName = (dbAgent.Name == tellmaAgent?.Name) ? tellmaAgent.Name : $"{dbAgent.Name} - {code}";
+                        break;
+
+                    case "InsuranceContract":
+                        agentName = (dbAgent.Name == tellmaAgent?.Name) ? tellmaAgent.Name : dbAgent.Name;
+                        lookup1Id = dbAgent.Lookup1Id; // Business Type
+                        lookup3Id = dbAgent.Lookup3Id; // Risk Country
+                        agent2Id = dbAgent.Agent2Id;   // Broker
+                        description = dbAgent.Description; // Description
+                        description2 = dbAgent.Description2; // Final closing date
+                        fromDate = dbAgent.FromDate;
+                        toDate = dbAgent.ToDate;
+                        break;
+
+                    case "TradeReceivableAccount":
+                        agentName = (dbAgent.Name == tellmaAgent?.Name) ? tellmaAgent.Name : dbAgent.Name;
+                        agent1Id = dbAgent.Agent1Id; // Insurance Agent
+                        agent2Id = dbAgent.Agent2Id; // Contract
+                        lookup2Id = dbAgent.Lookup2Id; // Main Business Class
+                        break;
+
+                    case "BusinessPartner":
+                        agent1Id = dbAgent.Agent1Id; // Contract
+                        agent2Id = dbAgent.Agent2Id; // Partner Agent
+                        lookup1Id = dbAgent.Lookup1Id; // Partnership Type
+
+                        tellmaAgent = agentsResult.FirstOrDefault(tellmaAgent => tellmaAgent.Agent1Id == dbAgent.Agent1Id
+                                                && tellmaAgent.Agent2Id == dbAgent.Agent2Id
+                                                && tellmaAgent.Lookup1Id == dbAgent.Lookup1Id);
+
+                        if (tellmaAgent != null)
+                        {
+                            code = tellmaAgent.Code;
+                            agentName = tellmaAgent.Name;
+                            break;
+                        }
+
+                        code = "BP" + (++serial).ToString("00000");
+                        agentName = $"{code}: {dbAgent.Name}";
+                        break;
+
+                    default:
+                        throw new InvalidOperationException($"Unknown agent definition code: {definitionCode}");
+                }
+
+                if (tellmaAgent == null)
+                {
+                    // Create new agent
+                    agentsToCreate.Add(new AgentForSave
+                    {
+                        Code = code,
+                        Name = agentName,
+                        Name2 = agentName,
+                        Agent1Id = agent1Id,
+                        Agent2Id = agent2Id,
+                        Lookup1Id = lookup1Id,
+                        Lookup3Id = lookup3Id,
+                        FromDate = fromDate,
+                        ToDate = toDate,
+                        Description = description,
+                        Description2 = description2
+                    });
+                }
+                else
+                {
+                    agentsToUpdate.Add(new AgentForSave
+                    {
+                        Id = tellmaAgent.Id,
+                        Code = code,
+                        Name = agentName,
+                        Name2 = agentName,
+                        Agent1Id = agent1Id,
+                        Agent2Id = agent2Id,
+                        Lookup1Id = lookup1Id,
+                        Lookup2Id = lookup2Id,
+                        Lookup3Id = lookup3Id,
+                        FromDate = fromDate,
+                        ToDate = toDate,
+                        Description = description,
+                        Description2 = description2
+                    });
+
+                }
+            }
+
+            if (agentsToCreate.Count == 0 && agentsToUpdate.Count == 0)
+            {
+                _logger.LogInformation($"{definitionCode} Agent sync completed! No changes detected.");
+                return agentsResult;
+            }
+
+            if (agentsToUpdate.Count != 0)
+            {
+                _logger.LogInformation($"Updating {agentsToUpdate.Count} existing {definitionCode} agents...");
+            }
+
+            if (agentsToCreate.Count != 0)
+            {
+                _logger.LogInformation($"Creating {agentsToCreate.Count} new {definitionCode} agents...");
+            }
+
+
+            agentsToCreate.AddRange(agentsToUpdate);
+
+            var createdAgents = await SaveAgents(tenantId, agentDefinitionId, agentsToCreate, cancellationToken);
+            _logger.LogInformation($"{definitionCode} Agent sync completed!");
+            agentsResult.AddRange(createdAgents);
+
+            return agentsResult;
+        }
+
         public async Task<List<Agent>> SaveAgents(int tenantId, int agentDefinitionId, List<AgentForSave> agentForSave, CancellationToken token)
         {
             var tellmaClient = _client.Application(tenantId);

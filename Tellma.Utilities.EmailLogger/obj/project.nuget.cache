@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "T4OI9y/zTf0=",
+  "dgSpecHash": "cuWJRN8LF2c=",
   "success": true,
-  "projectFilePath": "C:\\Users\\muham\\Desktop\\Requiremnt\\BananIT\\Projects\\Tellma.InsuranseImporter\\Tellma.InsuranceImporter\\Tellma.Utilities.EmailLogger\\Tellma.Utilities.EmailLogger.csproj",
+  "projectFilePath": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.Utilities.EmailLogger\\Tellma.Utilities.EmailLogger.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\muham\\.nuget\\packages\\bouncycastle.cryptography\\2.5.1\\bouncycastle.cryptography.2.5.1.nupkg.sha512",
     "C:\\Users\\muham\\.nuget\\packages\\mailkit\\4.13.0\\mailkit.4.13.0.nupkg.sha512",

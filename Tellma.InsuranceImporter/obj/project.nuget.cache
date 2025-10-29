@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "Ffj1aq7pj4c=",
+  "dgSpecHash": "Lo3r2KC/oE0=",
   "success": true,
-  "projectFilePath": "C:\\Users\\muham\\Desktop\\Requiremnt\\BananIT\\Projects\\Tellma.InsuranseImporter\\Tellma.InsuranceImporter\\Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj",
+  "projectFilePath": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\muham\\.nuget\\packages\\identitymodel\\6.2.0\\identitymodel.6.2.0.nupkg.sha512",
     "C:\\Users\\muham\\.nuget\\packages\\microsoft.extensions.configuration\\8.0.0\\microsoft.extensions.configuration.8.0.0.nupkg.sha512",
