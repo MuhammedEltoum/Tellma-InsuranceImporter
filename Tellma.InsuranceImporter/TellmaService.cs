@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Options;
 using System.Data;
 using System.Diagnostics;
+using System.Threading;
 using Tellma.Api.Dto;
 using Tellma.Client;
 using Tellma.InsuranceImporter.Enums;
@@ -46,9 +47,9 @@ namespace Tellma.InsuranceImporter
             var tellmaClient = _client.Application(tenantId);
             var crudClient = GetCrudClient(tellmaClient, clientProperty, definitionId);
             var getEntitiesMethod = crudClient.GetType().GetMethod("GetEntities");
-            var filterType = clientProperty == nameof(TellmaClient.ApplicationClientBehavior.EntryTypes) ? "Concept = " : "Code = ";
+            var filterType = clientProperty == nameof(TellmaClient.ApplicationClientBehavior.EntryTypes) ? "Concept=" : "Code=";
             if (isBankAccount.HasValue)
-                filterType = isBankAccount.Value ? "Text3 = " : filterType;
+                filterType = isBankAccount.Value ? "Text3=" : filterType;
             var getArgs = new GetArguments { Filter = $"{filterType}'{code}'", Top = 1 };
             var getEntitiesArgs = new object[] { new Request<GetArguments> { Arguments = getArgs }, token };
             var task = (Task)getEntitiesMethod.Invoke(crudClient, getEntitiesArgs);
@@ -134,7 +135,7 @@ namespace Tellma.InsuranceImporter
             var agentsCodesFromDB = dbAgentsCopy
                 .Select(t => t.Code)
                 .ToList();
-            string? batchFilter = String.Join(" OR ", agentsCodesFromDB.Select(t => $"Code = '{t}'"));
+            string? batchFilter = String.Join(" OR ", agentsCodesFromDB.Select(t => $"Code='{t}'"));
 
             if (isBusinessPartnerAgent)
             {
@@ -151,8 +152,8 @@ namespace Tellma.InsuranceImporter
             foreach (var dbAgent in dbAgentsCopy)
             {
                 if (agentsResult.Any(tellmaAgent => (tellmaAgent.Code == dbAgent.Code
-                    && (tellmaAgent.Name == dbAgent.Name || tellmaAgent.Name == $"{dbAgent.Name} - {dbAgent.Code}")
-                    && (tellmaAgent.Name2 == dbAgent.Name2 || tellmaAgent.Name2 == $"{dbAgent.Name2} - {dbAgent.Code}")
+                    && (tellmaAgent.Name == dbAgent.Name || tellmaAgent.Name == $"{dbAgent.Name} - {dbAgent.Code}" || $"{tellmaAgent.Code}: {tellmaAgent.Name}" == $"{dbAgent.Code}: {dbAgent.Name}")
+                    && (tellmaAgent.Name2 == dbAgent.Name2 || tellmaAgent.Name2 == $"{dbAgent.Name2} - {dbAgent.Code}" || $"{tellmaAgent.Code}: {tellmaAgent.Name}" == $"{dbAgent.Code}: {dbAgent.Name}")
                     && tellmaAgent.Agent1Id == dbAgent.Agent1Id
                     && tellmaAgent.Agent2Id == dbAgent.Agent2Id
                     && tellmaAgent.Lookup1Id == dbAgent.Lookup1Id
@@ -160,7 +161,7 @@ namespace Tellma.InsuranceImporter
                     && tellmaAgent.FromDate?.ToString("yyyy-MM-dd") == dbAgent.FromDate?.ToString("yyyy-MM-dd")
                     && tellmaAgent.ToDate?.ToString("yyyy-MM-dd") == dbAgent.ToDate?.ToString("yyyy-MM-dd")
                     && ((tellmaAgent.Description == dbAgent.Description) || (String.IsNullOrWhiteSpace(tellmaAgent.Description) && String.IsNullOrWhiteSpace(dbAgent.Description)))
-                    && tellmaAgent.Description2 == dbAgent.Description2) 
+                    && tellmaAgent.Description2 == dbAgent.Description2)
                     || (isBusinessPartnerAgent && tellmaAgent.Agent1Id == dbAgent.Agent1Id //business partner check
                     && tellmaAgent.Agent2Id == dbAgent.Agent2Id
                     && tellmaAgent.Lookup1Id == dbAgent.Lookup1Id)))
@@ -179,6 +180,25 @@ namespace Tellma.InsuranceImporter
             //Update tellma agents with updated agents from DB or create new agents from DB.
             var agentsToCreate = new List<AgentForSave>();
             var agentsToUpdate = new List<AgentForSave>();
+
+            // CONDITION FOR INSURANCE AGENTS: Check for duplicate names
+            if (definitionCode == "InsuranceAgent")
+            {
+                // Group agents by name to find duplicates
+                var nameGroups = dbAgentsCopy.GroupBy(a => a.Name.ToLower())
+                                            .Where(g => g.Count() > 1)
+                                            .ToList();
+
+                foreach (var group in nameGroups)
+                {
+                    foreach (var dbAgent in group)
+                    {
+                        // For duplicate names, concatenate code with name
+                        dbAgent.Name = $"{dbAgent.Name} - {dbAgent.Code}";
+                        dbAgent.Name2 = $"{dbAgent.Name2} - {dbAgent.Code}";
+                    }
+                }
+            }
 
             foreach (var dbAgent in dbAgentsCopy)
             {
@@ -199,7 +219,8 @@ namespace Tellma.InsuranceImporter
                 switch (definitionCode)
                 {
                     case "InsuranceAgent":
-                        agentName = (dbAgent.Name == tellmaAgent?.Name) ? tellmaAgent.Name : $"{dbAgent.Name} - {code}";
+                        // For InsuranceAgent, use the potentially modified name (with concatenated code)
+                        agentName = dbAgent.Name;
                         break;
 
                     case "InsuranceContract":
@@ -255,6 +276,7 @@ namespace Tellma.InsuranceImporter
                         Agent1Id = agent1Id,
                         Agent2Id = agent2Id,
                         Lookup1Id = lookup1Id,
+                        Lookup2Id = lookup2Id,
                         Lookup3Id = lookup3Id,
                         FromDate = fromDate,
                         ToDate = toDate,
@@ -300,7 +322,6 @@ namespace Tellma.InsuranceImporter
                 _logger.LogInformation($"Creating {agentsToCreate.Count} new {definitionCode} agents...");
             }
 
-
             agentsToCreate.AddRange(agentsToUpdate);
 
             var createdAgents = await SaveAgents(tenantId, agentDefinitionId, agentsToCreate, cancellationToken);
@@ -343,12 +364,15 @@ namespace Tellma.InsuranceImporter
                                 Filter = agentsFilter
                             }
                         }, token);
-                    createdAgents.AddRange(createdAgentsResult.Data);
-                    return createdAgents;
+                 
+                    return createdAgentsResult.Data.ToList();
                 }
                 else
                 {
-                    foreach (var agent in agentForSave)
+                    int pageSize = 500;
+                    int skip = 0;
+
+                    while (true) 
                     {
                         var createdAgentResult = await tellmaClient
                             .Agents(agentDefinitionId)
@@ -356,12 +380,16 @@ namespace Tellma.InsuranceImporter
                             {
                                 Arguments = new GetArguments
                                 {
-                                    Top = 1,
-                                    OrderBy = "Id desc",
-                                    Filter = $"Code = '{agent.Code}'"
+                                    Top = pageSize,
+                                    Skip = skip
                                 }
                             }, token);
-                        createdAgents.Add(createdAgentResult.Data[0]);
+
+                        createdAgents.AddRange(createdAgentResult.Data);
+
+                        if (createdAgentResult.Data.Count < pageSize) break;
+
+                        skip += pageSize;
                     }
                     return createdAgents;
                 }
@@ -415,8 +443,8 @@ namespace Tellma.InsuranceImporter
                     await tellmaClient
                         .Documents(documentDefinitionId)
                         .DeleteByIds(chunk.ToList());
-                }
 
+                }
             }
             catch (Exception ex)
             {
@@ -482,21 +510,36 @@ namespace Tellma.InsuranceImporter
             var applicationClient = _client.Application(tenantId);
             try
             {
-                await applicationClient
-                    .Documents(documentDefinitionId)
-                    .Close(documentIds);
-                _logger.LogInformation("Documents closed!");
+                if (documentIds.Count < 200)
+                {
+                    await applicationClient
+                        .Documents(documentDefinitionId)
+                        .Close(documentIds);
+                }
+                else
+                {
+                    int chunkSize = 200;
+                    var chunkedDocumentIds = documentIds.Chunk(chunkSize);
+                    
+                    foreach (var chunk in chunkedDocumentIds)
+                    {
+                        await applicationClient
+                            .Documents(documentDefinitionId)
+                            .Close(chunk.ToList());
+                    }
+
+                }
+                    _logger.LogInformation("Documents closed!");
             }
             catch (Exception ex)
             {
                 LogTellmaError(ex);
-                throw new Exception($"Error closing documents in Tellma for tenant {tenantId} and document definition {documentDefinitionId}.");
             }
         }
 
         public void LogTellmaError(Exception ex)
         {
-            _logger.LogError(ex.ToString());
+            throw new Exception($"Tellma API Error: {ex.ToString()}");
         }
 
         public async Task<int> GetAgentMaxSerialNumber(int tenantId, int agentDefinitionId, CancellationToken token)
@@ -527,6 +570,8 @@ namespace Tellma.InsuranceImporter
                 .GetFact(new FactArguments
                 {
                     Select = "Id",
+                    OrderBy = "Id Desc",
+                    Filter = "CreatedBy.Id = 77",
                     Top = 5000
                 }, token);
 
@@ -540,20 +585,35 @@ namespace Tellma.InsuranceImporter
                 int chunkSize = 200;
                 var agentIdsChunk = agentIds.Chunk(chunkSize);
 
+                int counter = 1;
                 foreach (var chunk in agentIdsChunk)
                 {
+                    _logger.LogInformation("Deleting {batch} out of {count} batches for Agent/{definition}", counter++, agentIdsChunk.Count(), agentDefinitionId);
                     await tellmaClient
                         .Agents(agentDefinitionId)
                         .DeleteByIds(chunk.ToList());
+
                 }
 
-                _logger.LogInformation($"For tenant: {tenantId} All Agents/{agentDefinitionId} are deleted!");
+                _logger.LogInformation($"\n\nFor tenant: {tenantId} All Agents/{agentDefinitionId} are deleted!\n\n");
 
             }
             catch (Exception ex)
             {
-                _logger.LogWarning($"Bulk delete failed for tenant: {tenantId} Agents/{agentDefinitionId}, trying individual deletes.\n\n Error: {ex.Message}");
+                _logger.LogWarning($"Bulk delete failed for tenant: {tenantId} Agents/{agentDefinitionId} \n\n Error: {ex.ToString()}");
             }
+
+        }
+
+        public async Task<SettingsForClient> GetTenantProfile(int tenantId, CancellationToken token)
+        {
+            var tellmaClient = _client.Application(tenantId);
+
+            var tenantSettings = await tellmaClient
+                .GeneralSettings
+                .SettingsForClient();
+
+            return tenantSettings.Data;
 
         }
     }

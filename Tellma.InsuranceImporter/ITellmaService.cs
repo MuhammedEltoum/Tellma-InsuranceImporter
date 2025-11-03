@@ -18,6 +18,7 @@ namespace Tellma.InsuranceImporter
         Task<List<Document>> SaveDocuments(int tenantId, int documentDefinitionId, List<DocumentForSave> documents, CancellationToken token);
         Task CloseDocuments(int tenantId, int documentDefinitionId, List<int> documentIds, CancellationToken token);
         Task DeleteDocumentsByDefinitionId(int tenantId, int documentDefinitionId, CancellationToken token);
+        public Task<SettingsForClient> GetTenantProfile(int tenantId, CancellationToken token);
         void LogTellmaError(Exception ex);
     }
 }

@@ -6,7 +6,7 @@
         public string? WorksheetId { get; set; }
         public DateTime PostingDate { get; set; }
         public bool IsPosted { get; set; }
-        public int DocumentId { get; set; }
+        public int DocumentId { get; set; } = 0;
         public string? Reference { get; set; } = "-";
         public string? AgentCode { get; set; } = String.Empty;
         public string? AgentName { get; set; }
@@ -14,10 +14,11 @@
         public sbyte Direction { get; set; }
         public Decimal TransferAmount { get; set; }
         public string TransferCurrencyId { get; set; } = String.Empty;
+        public string BankAccountCode { get; set; } = String.Empty;
+        public string BankAccountName { get; set; } = String.Empty;
         public Decimal BankAccountAmount { get; set; }
         public Decimal BankAccountFee { get; set; }
         public string BankAccountCurrencyId { get; set; } = String.Empty;
-        public string BankAccountCode { get; set; } = String.Empty;
         public Decimal ValueFC2 { get; set; }
         public String RemittanceType { get; set; } = String.Empty;
         public String RemittanceTypeName { get; set; } = String.Empty;

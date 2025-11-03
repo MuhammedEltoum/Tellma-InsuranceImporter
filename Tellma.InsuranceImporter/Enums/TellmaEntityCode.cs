@@ -18,7 +18,8 @@ namespace Tellma.InsuranceImporter.Enums
         TradeReceivableAccount,
         InsuranceContract,
         PartnershipTypes,
-        BusinessPartner
-        // Add more codes as needed
+        BusinessPartner,
+        TaxDepartment,
+        ValueAddedTax
     }
 }

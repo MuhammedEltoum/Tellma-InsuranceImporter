@@ -15,7 +15,7 @@ namespace Tellma.InsuranceImporter.Enums
                 TellmaEntityCode.TechnicalInOutward => "TechnicalInOutward",
                 TellmaEntityCode.RemittanceWorksheet => "RemittanceWorksheet",
                 TellmaEntityCode.ManualLine => "ManualLine",
-                TellmaEntityCode.OperationCenter => "20",
+                TellmaEntityCode.OperationCenter => "30",
                 TellmaEntityCode.MainBusinessClass => "MainBusinessClass",
                 TellmaEntityCode.Citizenship => "Citizenship",
                 TellmaEntityCode.TradeReceivableAccount => "TradeReceivableAccount",
@@ -25,6 +25,8 @@ namespace Tellma.InsuranceImporter.Enums
                 TellmaEntityCode.InsuranceContract => "InsuranceContract",
                 TellmaEntityCode.PartnershipTypes => "PartnershipTypes",
                 TellmaEntityCode.BusinessPartner => "BusinessPartner",
+                TellmaEntityCode.TaxDepartment => "TaxDepartment",
+                TellmaEntityCode.ValueAddedTax => "ValueAddedTax",
                 _ => throw new ArgumentOutOfRangeException(nameof(code), code, null)
             };
         }

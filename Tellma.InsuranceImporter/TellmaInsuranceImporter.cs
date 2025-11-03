@@ -26,15 +26,15 @@ namespace Tellma.InsuranceImporter
 
         public async Task ImportToTellma(CancellationToken stoppingToken)
         {
-            //await _exchangeRateService.Import(token);
-
             var time = new Stopwatch();
             time.Start();
             //await _remittanceService.Import(stoppingToken);
+            //time.Stop();
             //_logger.LogInformation($"remittance took {time.ElapsedMilliseconds / 1000} seconds!");
+            //time.Restart();
             await _technicalService.Import(stoppingToken);
-            _logger.LogInformation($"technical took {time.ElapsedMilliseconds / 1000} seconds!");
             time.Stop();
+            _logger.LogInformation($"technical took {time.ElapsedMilliseconds / 1000} seconds!");
         }
     }
 }

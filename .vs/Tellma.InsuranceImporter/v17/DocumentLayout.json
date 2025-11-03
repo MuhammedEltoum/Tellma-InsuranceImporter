@@ -3,24 +3,32 @@
   "WorkspaceRootPath": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{1007D5F2-C947-440F-8D83-6D42C145AC96}|Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj|d:\\projects\\bananit\\tellma-insuranceimporter\\tellma.insuranceimporter\\remittanceservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{1007D5F2-C947-440F-8D83-6D42C145AC96}|Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj|solutionrelative:tellma.insuranceimporter\\remittanceservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{1007D5F2-C947-440F-8D83-6D42C145AC96}|Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj|d:\\projects\\bananit\\tellma-insuranceimporter\\tellma.insuranceimporter\\itellmaservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{1007D5F2-C947-440F-8D83-6D42C145AC96}|Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj|solutionrelative:tellma.insuranceimporter\\itellmaservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{1007D5F2-C947-440F-8D83-6D42C145AC96}|Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj|d:\\projects\\bananit\\tellma-insuranceimporter\\tellma.insuranceimporter\\technicalservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{1007D5F2-C947-440F-8D83-6D42C145AC96}|Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj|solutionrelative:tellma.insuranceimporter\\technicalservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{C235E648-B04C-46D7-89E2-F0BEBB31F6A3}|Tellma.InsuranceImporter.WindowsService\\Tellma.InsuranceImporter.WindowsService.csproj|d:\\projects\\bananit\\tellma-insuranceimporter\\tellma.insuranceimporter.windowsservice\\worker.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{C235E648-B04C-46D7-89E2-F0BEBB31F6A3}|Tellma.InsuranceImporter.WindowsService\\Tellma.InsuranceImporter.WindowsService.csproj|solutionrelative:tellma.insuranceimporter.windowsservice\\worker.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{1007D5F2-C947-440F-8D83-6D42C145AC96}|Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj|d:\\projects\\bananit\\tellma-insuranceimporter\\tellma.insuranceimporter\\tellmaservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{1007D5F2-C947-440F-8D83-6D42C145AC96}|Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj|solutionrelative:tellma.insuranceimporter\\tellmaservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{1007D5F2-C947-440F-8D83-6D42C145AC96}|Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj|d:\\projects\\bananit\\tellma-insuranceimporter\\tellma.insuranceimporter\\tellmainsuranceimporter.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{1007D5F2-C947-440F-8D83-6D42C145AC96}|Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj|solutionrelative:tellma.insuranceimporter\\tellmainsuranceimporter.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{1007D5F2-C947-440F-8D83-6D42C145AC96}|Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj|d:\\projects\\bananit\\tellma-insuranceimporter\\tellma.insuranceimporter\\insurancehelper.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{1007D5F2-C947-440F-8D83-6D42C145AC96}|Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj|solutionrelative:tellma.insuranceimporter\\insurancehelper.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{1007D5F2-C947-440F-8D83-6D42C145AC96}|Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj|d:\\projects\\bananit\\tellma-insuranceimporter\\tellma.insuranceimporter\\tellmaservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{1007D5F2-C947-440F-8D83-6D42C145AC96}|Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj|solutionrelative:tellma.insuranceimporter\\tellmaservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{C235E648-B04C-46D7-89E2-F0BEBB31F6A3}|Tellma.InsuranceImporter.WindowsService\\Tellma.InsuranceImporter.WindowsService.csproj|d:\\projects\\bananit\\tellma-insuranceimporter\\tellma.insuranceimporter.windowsservice\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{C235E648-B04C-46D7-89E2-F0BEBB31F6A3}|Tellma.InsuranceImporter.WindowsService\\Tellma.InsuranceImporter.WindowsService.csproj|solutionrelative:tellma.insuranceimporter.windowsservice\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{1007D5F2-C947-440F-8D83-6D42C145AC96}|Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj|d:\\projects\\bananit\\tellma-insuranceimporter\\tellma.insuranceimporter\\itellmaservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{1007D5F2-C947-440F-8D83-6D42C145AC96}|Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj|solutionrelative:tellma.insuranceimporter\\itellmaservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -30,71 +38,97 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 3,
           "Children": [
             {
               "$type": "Document",
               "DocumentIndex": 3,
-              "Title": "InsuranceHelper.cs",
-              "DocumentMoniker": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\InsuranceHelper.cs",
-              "RelativeDocumentMoniker": "Tellma.InsuranceImporter\\InsuranceHelper.cs",
-              "ToolTip": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\InsuranceHelper.cs",
-              "RelativeToolTip": "Tellma.InsuranceImporter\\InsuranceHelper.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAqwAoAAAAOAAAAAAAAAA==",
+              "Title": "TellmaInsuranceImporter.cs",
+              "DocumentMoniker": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\TellmaInsuranceImporter.cs",
+              "RelativeDocumentMoniker": "Tellma.InsuranceImporter\\TellmaInsuranceImporter.cs",
+              "ToolTip": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\TellmaInsuranceImporter.cs",
+              "RelativeToolTip": "Tellma.InsuranceImporter\\TellmaInsuranceImporter.cs",
+              "ViewState": "AgIAABAAAAAAAAAAAAAswCQAAAAZAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-10-29T21:09:15.917Z",
+              "WhenOpened": "2025-11-03T13:55:27.117Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "RemittanceService.cs",
-              "DocumentMoniker": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\RemittanceService.cs",
-              "RelativeDocumentMoniker": "Tellma.InsuranceImporter\\RemittanceService.cs",
-              "ToolTip": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\RemittanceService.cs",
-              "RelativeToolTip": "Tellma.InsuranceImporter\\RemittanceService.cs",
-              "ViewState": "AgIAAC0BAAAAAAAAAAAAAEQBAAAXAAAAAAAAAA==",
+              "DocumentIndex": 1,
+              "Title": "Worker.cs",
+              "DocumentMoniker": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.WindowsService\\Worker.cs",
+              "RelativeDocumentMoniker": "Tellma.InsuranceImporter.WindowsService\\Worker.cs",
+              "ToolTip": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.WindowsService\\Worker.cs",
+              "RelativeToolTip": "Tellma.InsuranceImporter.WindowsService\\Worker.cs",
+              "ViewState": "AgIAAAwAAAAAAAAAAAAAABwAAAA/AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-10-29T16:38:26.89Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "TechnicalService.cs",
-              "DocumentMoniker": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\TechnicalService.cs",
-              "RelativeDocumentMoniker": "Tellma.InsuranceImporter\\TechnicalService.cs",
-              "ToolTip": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\TechnicalService.cs",
-              "RelativeToolTip": "Tellma.InsuranceImporter\\TechnicalService.cs",
-              "ViewState": "AgIAAEAAAAAAAAAAAAAAAEYAAAAQAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-10-28T05:17:31.784Z",
+              "WhenOpened": "2025-11-03T13:54:11.257Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
               "DocumentIndex": 4,
+              "Title": "InsuranceHelper.cs",
+              "DocumentMoniker": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\InsuranceHelper.cs",
+              "RelativeDocumentMoniker": "Tellma.InsuranceImporter\\InsuranceHelper.cs",
+              "ToolTip": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\InsuranceHelper.cs",
+              "RelativeToolTip": "Tellma.InsuranceImporter\\InsuranceHelper.cs",
+              "ViewState": "AgIAABYAAAAAAAAAAAAAAAwAAAAYAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-11-01T05:50:31.502Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "TechnicalService.cs",
+              "DocumentMoniker": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\TechnicalService.cs",
+              "RelativeDocumentMoniker": "Tellma.InsuranceImporter\\TechnicalService.cs",
+              "ToolTip": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\TechnicalService.cs",
+              "RelativeToolTip": "Tellma.InsuranceImporter\\TechnicalService.cs",
+              "ViewState": "AgIAAMsBAAAAAAAAAAAAANABAABUAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-10-31T16:00:16.151Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
               "Title": "TellmaService.cs",
               "DocumentMoniker": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\TellmaService.cs",
               "RelativeDocumentMoniker": "Tellma.InsuranceImporter\\TellmaService.cs",
               "ToolTip": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\TellmaService.cs",
               "RelativeToolTip": "Tellma.InsuranceImporter\\TellmaService.cs",
-              "ViewState": "AgIAAJ0AAAAAAAAAAAAAAK8AAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAjAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-10-28T05:18:07.243Z"
+              "WhenOpened": "2025-10-31T15:13:27.226Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 5,
+              "Title": "Program.cs",
+              "DocumentMoniker": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.WindowsService\\Program.cs",
+              "RelativeDocumentMoniker": "Tellma.InsuranceImporter.WindowsService\\Program.cs",
+              "ToolTip": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.WindowsService\\Program.cs",
+              "RelativeToolTip": "Tellma.InsuranceImporter.WindowsService\\Program.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABAAAABQAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-11-03T07:31:21.678Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
               "Title": "ITellmaService.cs",
               "DocumentMoniker": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\ITellmaService.cs",
               "RelativeDocumentMoniker": "Tellma.InsuranceImporter\\ITellmaService.cs",
               "ToolTip": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\ITellmaService.cs",
               "RelativeToolTip": "Tellma.InsuranceImporter\\ITellmaService.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAsAAAASAAAAAAAAAA==",
+              "ViewState": "AgIAAAMAAAAAAAAAAAAvwA4AAAAaAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-10-28T05:20:32.888Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-28T05:20:32.888Z"
             }
           ]
         }

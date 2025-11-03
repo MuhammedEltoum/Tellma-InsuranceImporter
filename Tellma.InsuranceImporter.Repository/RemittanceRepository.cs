@@ -24,6 +24,7 @@ namespace Tellma.InsuranceImporter.Repository
                                     ",[BANK_ACCOUNT_FEE]" +
                                     ",[BANK_ACCOUNT_CURRENCY_ID]" +
                                     ",[BANK_ACCOUNT_CODE]" +
+                                    ",[BANK_ACCOUNT_NAME]" +
                                     ",[VALUE_FC2]" +
                                     ",[RemitType]" +
                                     ",TMR.[RemittanceTypeName]" +
@@ -73,31 +74,32 @@ namespace Tellma.InsuranceImporter.Repository
                         BankAccountFee = Math.Round(reader.GetDecimal(11), 6),
                         BankAccountCurrencyId = reader.GetString(12),
                         BankAccountCode = reader.GetString(13),
-                        ValueFC2 = Math.Round(reader.GetDecimal(14), 6),
-                        RemittanceType = reader.GetString(15),
-                        RemittanceTypeName = reader.GetString(16),
-                        RemittanceNotes = !reader.IsDBNull(17) ? reader.GetString(17) : null,
-                        AAccount = reader.GetString(18),
-                        ANotedAgentId = !reader.IsDBNull(19) ? reader.GetInt32(19) : null,
-                        AResourceId = !reader.IsDBNull(20) ? reader.GetInt32(20) : null,
-                        ANotedResourceId = !reader.IsDBNull(21) ? reader.GetInt32(21) : null,
-                        APurposeConcept = reader.GetString(22),
-                        APurposeId = reader.GetInt32(23),
-                        ADirection = Convert.ToSByte(reader.GetByte(24)),
-                        AQuantity = !reader.IsDBNull(25) ? Convert.ToByte(reader.GetBoolean(25)) : null,
-                        AHasNOTEDDATE = reader.GetBoolean(26),
-                        AIsBankAcc = reader.GetBoolean(27),
-                        BAccount = reader.GetString(28),
-                        BNotedAgentId = !reader.IsDBNull(29) ? reader.GetInt32(29) : null,
-                        BResourceId = !reader.IsDBNull(30) ? reader.GetInt32(30) : null,
-                        BNotedResourceId = !reader.IsDBNull(31) ? reader.GetInt32(31) : null,
-                        BPurposeConcept = reader.GetString(32),
-                        BPurposeId = reader.GetInt32(33),
-                        BDirection = Convert.ToSByte(reader.GetInt32(34)),
-                        BQuantity = !reader.IsDBNull(35) ? Convert.ToByte(reader.GetBoolean(35)) : null,
-                        BHasNOTEDDATE = reader.GetBoolean(36),
-                        BIsBankAcc = reader.GetBoolean(37),
-                        DocumentId = !reader.IsDBNull(38) ? reader.GetInt32(38) : 0
+                        BankAccountName = reader.GetString(14),
+                        ValueFC2 = Math.Round(reader.GetDecimal(15), 6),
+                        RemittanceType = reader.GetString(16),
+                        RemittanceTypeName = reader.GetString(17),
+                        RemittanceNotes = !reader.IsDBNull(18) ? reader.GetString(18) : null,
+                        AAccount = reader.GetString(19),
+                        ANotedAgentId = !reader.IsDBNull(20) ? reader.GetInt32(20) : null,
+                        AResourceId = !reader.IsDBNull(21) ? reader.GetInt32(21) : null,
+                        ANotedResourceId = !reader.IsDBNull(22) ? reader.GetInt32(22) : null,
+                        APurposeConcept = reader.GetString(23),
+                        APurposeId = reader.GetInt32(24),
+                        ADirection = Convert.ToSByte(reader.GetByte(25)),
+                        AQuantity = !reader.IsDBNull(26) ? Convert.ToByte(reader.GetBoolean(26)) : null,
+                        AHasNOTEDDATE = reader.GetBoolean(27),
+                        AIsBankAcc = reader.GetBoolean(28),
+                        BAccount = reader.GetString(29),
+                        BNotedAgentId = !reader.IsDBNull(30) ? reader.GetInt32(30) : null,
+                        BResourceId = !reader.IsDBNull(31) ? reader.GetInt32(31) : null,
+                        BNotedResourceId = !reader.IsDBNull(32) ? reader.GetInt32(32) : null,
+                        BPurposeConcept = reader.GetString(33),
+                        BPurposeId = reader.GetInt32(34),
+                        BDirection = Convert.ToSByte(reader.GetInt32(35)),
+                        BQuantity = !reader.IsDBNull(36) ? Convert.ToByte(reader.GetBoolean(36)) : null,
+                        BHasNOTEDDATE = reader.GetBoolean(37),
+                        BIsBankAcc = reader.GetBoolean(38),
+                        DocumentId = !reader.IsDBNull(39) ? reader.GetInt32(39) : 0
                     });
                 }
             }

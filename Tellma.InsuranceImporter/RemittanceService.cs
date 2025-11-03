@@ -31,11 +31,15 @@ namespace Tellma.InsuranceImporter
                 return;
             }
 
+
             var tenantCodes = validWorksheets.Select(t => t.TenantCode).Distinct().ToList();
 
             foreach (var tenantCode in tenantCodes)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                
+                //only process IR1 tenant for now
+                if (tenantCode != "IR160") continue;
 
                 var tenantWorks = validWorksheets.Where(t => t.TenantCode == tenantCode).ToList();
 
@@ -53,6 +57,7 @@ namespace Tellma.InsuranceImporter
                 }
             }
         }
+
         private async Task ProcessTenant(string tenantCode, List<Remittance> validRemittanceList, CancellationToken cancellationToken)
         {
             if (!validRemittanceList.Any())
@@ -62,6 +67,16 @@ namespace Tellma.InsuranceImporter
             }
 
             var tenantId = InsuranceHelper.GetTenantId(tenantCode);
+
+            var tenantProfile = await _service.GetTenantProfile(tenantId, cancellationToken);
+
+            // Log tenant info
+            _logger.LogInformation("\n \n Processing tenant {TenantCode} (ID: {TenantId}, Name: {TenantName}) with {Count} remittance worksheets. \n \n",
+                tenantCode, tenantId, tenantProfile.CompanyName, validRemittanceList.Count);
+
+            // validate creation or updating of worksheets
+            RemoveIf(ref validRemittanceList, r => r.DocumentId > 0 && r.PostingDate < tenantProfile.ArchiveDate, "have a posting date before or on the archive date for existing remittances");
+            RemoveIf(ref validRemittanceList, r => r.PostingDate < tenantProfile.FreezeDate, "have a posting date before or on the freeze date for new remittances");
 
             // Collections to hold documents before saving
             var remittanceDocuments = new List<DocumentForSave>();
@@ -84,19 +99,17 @@ namespace Tellma.InsuranceImporter
                 insuranceAgents.AddRange(synced);
             }
 
-            // Accounts batch
-            var accountCodes = validRemittanceList.SelectMany(w => new[] { w.AAccount, w.BAccount })
-                .Where(s => !string.IsNullOrWhiteSpace(s))
-                .Distinct()
+            //BankAccounts validation
+            // Can't sync due to missing bankId
+            foreach (var remittance in validRemittanceList.Where(r => (r.AIsBankAcc || r.BIsBankAcc) && String.IsNullOrWhiteSpace(r.BankAccountCode)))
+                remittance.BankAccountCode = "For control Purpose";
+
+            var missingBankAcc = validRemittanceList
+                .Where(r => String.IsNullOrWhiteSpace(r.BankAccountCode) && (r.AIsBankAcc || r.BIsBankAcc))
                 .ToList();
 
-            string? accountsFilter = accountCodes.Any() ? string.Join(" OR ", accountCodes.Select(a => $"Code='{a}'")) : null;
-            var accountsObjectResult = await _service.GetClientEntities(tenantId, TellmaClientProperty.Accounts.AsString(), filter: accountsFilter, token: cancellationToken);
-            var accountsResult = accountsObjectResult.ConvertAll(a => (Account)a);
-
-            //BankAccounts validation
             int bankAccountDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.AgentDefinitions.AsString(), TellmaEntityCode.BankAccount.AsString(), token: cancellationToken);
-            string? baBatchFilter = String.Join(" OR ", validRemittanceList.Where(ba => !String.IsNullOrWhiteSpace(ba.BankAccountCode)).Select(r => $"Text3  = '{r.BankAccountCode}'").Distinct());
+            string? baBatchFilter = String.Join(" OR ", validRemittanceList.Where(ba => !String.IsNullOrWhiteSpace(ba.BankAccountCode)).Select(r => $"Text3='{r.BankAccountCode}'").Distinct());
             baBatchFilter = baBatchFilter.Length < 1024 ? baBatchFilter : null;
             var bankAccountsObjectResult = await _service.GetClientEntities(tenantId, TellmaClientProperty.Agents.AsString(), bankAccountDefinitionId, baBatchFilter, token: cancellationToken);
             var bankAccountsResult = bankAccountsObjectResult.ConvertAll(agent => (Agent)agent);
@@ -141,11 +154,46 @@ namespace Tellma.InsuranceImporter
                 return;
             }
 
+            // Accounts batch
+            var accountCodes = validRemittanceList.SelectMany(w => new[] { w.AAccount, w.BAccount })
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Distinct()
+                .ToList();
+            string? accountsFilter = accountCodes.Any() ? string.Join(" OR ", accountCodes.Select(a => $"Code='{a}'")) : null;
+            var accountsObjectResult = await _service.GetClientEntities(tenantId, TellmaClientProperty.Accounts.AsString(), filter: accountsFilter, token: cancellationToken);
+            var accountsResult = accountsObjectResult.ConvertAll(a => (Account)a);
+
+            // Entry-types batch
+            var entryTypesCodes = validRemittanceList.SelectMany(w => new[] { w.APurposeConcept, w.BPurposeConcept })
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Distinct()
+                .ToList();
+            string? entryTypesFilter = entryTypesCodes.Any() ? string.Join(" OR ", entryTypesCodes.Select(a => $"Concept='{a}'")) : null;
+            var entryTypesObjectResult = await _service.GetClientEntities(tenantId, TellmaClientProperty.EntryTypes.AsString(), filter: entryTypesFilter, token: cancellationToken);
+            var entryTypesResult = entryTypesObjectResult.ConvertAll(entryType => (EntryType)entryType);
+
             // Document definitions and other ids
             int remittanceDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.DocumentDefinitions.AsString(), TellmaEntityCode.RemittanceWorksheet.AsString(), token: cancellationToken);
             int lineDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.LineDefinitions.AsString(), TellmaEntityCode.ManualLine.AsString(), token: cancellationToken);
 
-            string operationCenterCode = TellmaEntityCode.OperationCenter.AsString();
+            string operationCenterCode = String.Empty;
+
+            switch (tenantId)
+            {
+                case 601:
+                    operationCenterCode = "20";
+                    break;
+                case 602:
+                    operationCenterCode = "20";
+                    break;
+                case 1303:
+                    operationCenterCode = "30";
+                    break;
+                default:
+                    operationCenterCode = "30";
+                    break;
+            }
+
             int operationCenterId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.Centers.AsString(), operationCenterCode, token: cancellationToken);
 
             int inwardOutwardDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.LookupDefinitions.AsString(), TellmaEntityCode.TechnicalInOutward.AsString(), token: cancellationToken);
@@ -177,21 +225,22 @@ namespace Tellma.InsuranceImporter
                 //for memo tellma validation 255 char
                 if (memo.Length > 255)
                 {
-                    _logger.LogWarning($"Memo for remittance RW{serialNumber} exceeds 255 characters and will be truncated.");
+                    _logger.LogWarning("Memo for remittance RW{serialNumber} exceeds 255 characters and will be truncated.", serialNumber);
                     memo = memo.Substring(0, 255);
                 }
 
                 string? insuranceAgentName = remittance.AgentName ?? null;
                 if (insuranceAgentName != null && insuranceAgentName.Length > 50)
                 {
-                    _logger.LogWarning($"Insurance agent name for remittance RW{serialNumber} exceeds 50 characters and will be truncated.");
+                    _logger.LogWarning("Insurance agent name for remittance RW{serialNumber} exceeds 50 characters and will be truncated.", serialNumber);
                     insuranceAgentName = insuranceAgentName.Substring(0, 50);
                 }
 
                 var accountAId = accountsResult.FirstOrDefault(a => a.Code == remittance.AAccount)?.Id;
                 var accountBId = accountsResult.FirstOrDefault(a => a.Code == remittance.BAccount)?.Id;
-                var entryTypeAId = remittance.APurposeId;
-                var entryTypeBId = remittance.BPurposeId;
+                
+                var entryTypeAId = entryTypesResult.FirstOrDefault(et => et.Concept == remittance.APurposeConcept)?.Id;
+                var entryTypeBId = entryTypesResult.FirstOrDefault(et => et.Concept == remittance.BPurposeConcept)?.Id;
 
                 var agentAId = remittance.AIsBankAcc ? bankAccountId : insuranceAgentId;
                 var agentBId = remittance.BIsBankAcc ? bankAccountId : insuranceAgentId;
@@ -202,13 +251,13 @@ namespace Tellma.InsuranceImporter
                     //A Account
                     AccountId = accountAId,
                     EntryTypeId = entryTypeAId,
-                    Direction = remittance.ADirection,
+                    Direction = (short?)(remittance.RemittanceType.ToLower() != "exdiff" ? remittance.ADirection : -1 * remittance.ADirection),
                     Value = remittance.ValueFC2,
                     MonetaryValue = remittance.TransferAmount,
                     AgentId = agentAId,
-                    NotedAgentId = remittance.ANotedAgentId ?? null,
-                    ResourceId = remittance.AResourceId ?? null,
-                    NotedResourceId = remittance.ANotedResourceId ?? null,
+                    NotedAgentId = remittance.ANotedAgentId,
+                    ResourceId = remittance.AResourceId,
+                    NotedResourceId = remittance.ANotedResourceId,
                     NotedDate = remittance.AHasNOTEDDATE ? remittance.PostingDate : null,
                     Quantity = remittance.AQuantity,
                     CurrencyId = remittance.AIsBankAcc ? remittance.BankAccountCurrencyId : remittance.TransferCurrencyId,
@@ -221,14 +270,14 @@ namespace Tellma.InsuranceImporter
                     //B Account
                     AccountId = accountBId,
                     EntryTypeId = entryTypeBId,
-                    Direction = remittance.BDirection,
+                    Direction = (short?)(remittance.RemittanceType.ToLower() != "exdiff" ? remittance.BDirection : -1 * remittance.BDirection),
                     Value = remittance.ValueFC2,
                     MonetaryValue = remittance.TransferAmount,
                     CurrencyId = remittance.BIsBankAcc ? remittance.BankAccountCurrencyId : remittance.TransferCurrencyId,
                     AgentId = agentBId,
-                    NotedAgentId = remittance.BNotedAgentId ?? null,
-                    ResourceId = remittance.BResourceId ?? null,
-                    NotedResourceId = remittance.BNotedResourceId ?? null,
+                    NotedAgentId = remittance.BNotedAgentId,
+                    ResourceId = remittance.BResourceId,
+                    NotedResourceId = remittance.BNotedResourceId,
                     NotedDate = remittance.BHasNOTEDDATE ? remittance.PostingDate : null,
                     Quantity = remittance.BQuantity,
                     ExternalReference = remittance.BIsBankAcc ? remittance.Reference : null,
@@ -240,40 +289,26 @@ namespace Tellma.InsuranceImporter
                 if (entriesList[0].Direction < 0)
                     entriesList.Reverse();
 
-                DocumentForSave document;
-                if (remittance.DocumentId > 0)
+                var document = new DocumentForSave
                 {
-                    document = await _service.GetDocumentById(tenantId, remittanceDefinitionId, remittance.DocumentId, cancellationToken);
-                    document.SerialNumber = serialNumber;
-                    document.PostingDate = remittance.PostingDate;
-                    document.PostingDateIsCommon = true;
-                    document.Lookup1Id = inwardOutwardLookupId;
-                    document.Memo = memo;
-                    document.MemoIsCommon = true;
-                    document.Lines = new List<LineForSave>();
-                }
-                else
-                {
-                    document = new DocumentForSave
+                    Id = remittance.DocumentId,
+                    SerialNumber = serialNumber,
+                    PostingDate = remittance.PostingDate,
+                    PostingDateIsCommon = true,
+                    Lookup1Id = inwardOutwardLookupId,
+                    Memo = memo,
+                    MemoIsCommon = true,
+                    CenterIsCommon = true,
+                    Lines = new List<LineForSave>
                     {
-                        SerialNumber = serialNumber,
-                        PostingDate = remittance.PostingDate,
-                        PostingDateIsCommon = true,
-                        Lookup1Id = inwardOutwardLookupId,
-                        Memo = memo,
-                        MemoIsCommon = true,
-                        CenterIsCommon = true,
-                        Lines = new List<LineForSave>()
-                    };
-                }
-                document.Lines.Add(
-                    new LineForSave
-                    {
-                        DefinitionId = lineDefinitionId,
-                        Entries = entriesList
+                        new LineForSave
+                        {
+                            DefinitionId = lineDefinitionId,
+                            Entries = entriesList
+                        }
                     }
-                );
-
+                };
+                
                 remittanceDocuments.Add(document);
             }
             try

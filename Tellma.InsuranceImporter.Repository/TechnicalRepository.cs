@@ -23,10 +23,6 @@ namespace Tellma.InsuranceImporter.Repository
                                   ",[BUSINESS_TYPE_CODE]" +
                                   ",[BUSINESS_MAIN_CLASS_CODE]" +
                                   ",[BUSINESS_MAIN_CLASS_NAME]" +
-                                  ",[BUSINESS_CLASS_CODE]" +
-                                  ",[BUSINESS_CLASS_NAME]" +
-                                  ",[BUSINESS_SUB_CLASS_CODE]" +
-                                  ",[BUSINESS_SUB_CLASSNAME]" +
                                   ",[AGENT_CODE]" +
                                   ",[AGENT_NAME]" +
                                   ",[BROKER_CODE]" +
@@ -35,6 +31,8 @@ namespace Tellma.InsuranceImporter.Repository
                                   ",[CEDANT_NAME]" +
                                   ",[REINSURER_CODE]" +
                                   ",[REINSURER_NAME]" +
+                                  ",[INSURED_CODE]" +
+                                  ",[INSURED_NAME]" +
                                   ",[RISK_COUNTRY]" +
                                   ",[EFFECTIVE_DATE]" +
                                   ",[EXPIRY_DATE]" +
@@ -81,43 +79,41 @@ namespace Tellma.InsuranceImporter.Repository
                         BusinessTypeCode = !reader.IsDBNull(8) ? reader.GetString(8) : null,
                         BusinessMainClassCode = !reader.IsDBNull(9) ? reader.GetString(9) : null,
                         BusinessMainClassName = !reader.IsDBNull(10) ? reader.GetString(10) : null,
-                        BusinessClassCode = !reader.IsDBNull(11) ? reader.GetString(11) : null,
-                        BusinessClassName = !reader.IsDBNull(12) ? reader.GetString(12) : null,
-                        BusinessSubClassCode = !reader.IsDBNull(13) ? reader.GetString(13) : null,
-                        BusinessSubClassName = !reader.IsDBNull(14) ? reader.GetString(14) : null,
-                        AgentCode = !reader.IsDBNull(15) ? reader.GetString(15) : null,
-                        AgentName = !reader.IsDBNull(16) ? reader.GetString(16) : null,
-                        BrokerCode = !reader.IsDBNull(17) ? reader.GetString(17) : null,
-                        BrokerName = !reader.IsDBNull(18) ? reader.GetString(18) : null,
-                        CedantCode = !reader.IsDBNull(19) ? reader.GetString(19) : null,
-                        CedantName = !reader.IsDBNull(20) ? reader.GetString(20) : null,
-                        ReinsurerCode = !reader.IsDBNull(21) ? reader.GetString(21) : null,
-                        ReinsurerName = !reader.IsDBNull(22) ? reader.GetString(22) : null,
-                        RiskCountry = !reader.IsDBNull(23) ? reader.GetString(23) : null,
-                        EffectiveDate = reader.GetDateTime(24),
-                        ExpiryDate = reader.GetDateTime(25),
-                        Direction = reader.GetInt16(26),
-                        ContractAmount = reader.GetDecimal(27),
-                        ContractCurrencyId = reader.GetString(28),
-                        ValueFc2 = reader.GetDecimal(29),
-                        ChannelCode = !reader.IsDBNull(30) ? reader.GetString(30) : null,
-                        ChannelName = !reader.IsDBNull(31) ? reader.GetString(31) : null,
-                        NotedDate = reader.GetDateTime(32),
-                        TenantCode = reader.GetString(33),
-                        TenantName = reader.GetString(34),
-                        TellmaDocumentId = !reader.IsDBNull(35) ? reader.GetInt32(35) : 0,
-                        AccountCode = reader.GetString(36),
-                        TechnicalNotes = !reader.IsDBNull(37) ? reader.GetString(37) : null,
-                        AAccount = !reader.IsDBNull(38) ? reader.GetString(38) : null,
-                        ASign = !reader.IsDBNull(39) ? reader.GetString(39) : null,
-                        ATaxAccount = !reader.IsDBNull(40) ? reader.GetBoolean(40) : false,
-                        APurposeConcept = !reader.IsDBNull(41) ? reader.GetString(41) : null,
-                        AHasNotedDate = !reader.IsDBNull(42) ? reader.GetBoolean(42) : false,
-                        BAccount = !reader.IsDBNull(43) ? reader.GetString(43) : null,
-                        BSign = !reader.IsDBNull(44) ? reader.GetString(44) : null,
-                        BTaxAccount = !reader.IsDBNull(45) ? reader.GetBoolean(45) : false,
-                        BPurposeConcept = !reader.IsDBNull(46) ? reader.GetString(46) : null,
-                        BHasNotedDate = !reader.IsDBNull(47) ? reader.GetBoolean(47) : false
+                        AgentCode = !reader.IsDBNull(11) ? reader.GetString(11) : null,
+                        AgentName = !reader.IsDBNull(12) ? reader.GetString(12) : null,
+                        BrokerCode = !reader.IsDBNull(13) ? reader.GetString(13) : null,
+                        BrokerName = !reader.IsDBNull(14) ? reader.GetString(14) : null,
+                        CedantCode = !reader.IsDBNull(15) ? reader.GetString(15) : null,
+                        CedantName = !reader.IsDBNull(16) ? reader.GetString(16) : null,
+                        ReinsurerCode = !reader.IsDBNull(17) ? reader.GetString(17) : null,
+                        ReinsurerName = !reader.IsDBNull(18) ? reader.GetString(18) : null,
+                        InsuredCode = !reader.IsDBNull(19) ? reader.GetString(19) : null,
+                        InsuredName = !reader.IsDBNull(20) ? reader.GetString(20) : null,
+                        RiskCountry = !reader.IsDBNull(21) ? reader.GetString(21) : null,
+                        EffectiveDate = reader.GetDateTime(22),
+                        ExpiryDate = reader.GetDateTime(23),
+                        Direction = reader.GetInt16(24),
+                        ContractAmount = reader.GetDecimal(25),
+                        ContractCurrencyId = reader.GetString(26),
+                        ValueFc2 = reader.GetDecimal(27),
+                        ChannelCode = !reader.IsDBNull(28) ? reader.GetString(28) : null,
+                        ChannelName = !reader.IsDBNull(29) ? reader.GetString(29) : null,
+                        NotedDate = reader.GetDateTime(30),
+                        TenantCode = reader.GetString(31),
+                        TenantName = reader.GetString(32),
+                        TellmaDocumentId = !reader.IsDBNull(33) ? reader.GetInt32(33) : 0,
+                        AccountCode = reader.GetString(34),
+                        TechnicalNotes = !reader.IsDBNull(35) ? reader.GetString(35) : null,
+                        AAccount = !reader.IsDBNull(36) ? reader.GetString(36) : null,
+                        ASign = !reader.IsDBNull(37) ? reader.GetString(37) : null,
+                        ATaxAccount = !reader.IsDBNull(38) ? reader.GetBoolean(38) : false,
+                        APurposeConcept = !reader.IsDBNull(39) ? reader.GetString(39) : null,
+                        AHasNotedDate = !reader.IsDBNull(40) ? reader.GetBoolean(40) : false,
+                        BAccount = !reader.IsDBNull(41) ? reader.GetString(41) : null,
+                        BSign = !reader.IsDBNull(42) ? reader.GetString(42) : null,
+                        BTaxAccount = !reader.IsDBNull(43) ? reader.GetBoolean(43) : false,
+                        BPurposeConcept = !reader.IsDBNull(44) ? reader.GetString(44) : null,
+                        BHasNotedDate = !reader.IsDBNull(45) ? reader.GetBoolean(45) : false
                     });
                 }
             }

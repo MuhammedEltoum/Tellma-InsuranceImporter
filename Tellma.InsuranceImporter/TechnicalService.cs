@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using System.Reflection.Metadata.Ecma335;
 using Tellma.InsuranceImporter.Contract;
 using Tellma.InsuranceImporter.Enums;
 using Tellma.InsuranceImporter.Repository;
@@ -37,6 +38,9 @@ namespace Tellma.InsuranceImporter
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                //only process IR1 tenant for now
+                if (tenantCode != "IR160") continue;
+
                 var tenantWorks = validWorksheets.Where(t => t.TenantCode == tenantCode).ToList();
 
                 try
@@ -54,25 +58,6 @@ namespace Tellma.InsuranceImporter
             }
         }
 
-        private List<Technical> ValidateWorksheets(List<Technical> worksheets)
-        {
-            var valid = worksheets.ToList();
-
-            RemoveIf(ref valid, w => string.IsNullOrWhiteSpace(w.AgentCode), "have an invalid insurance agent");
-            RemoveIf(ref valid, w => string.IsNullOrWhiteSpace(w.ContractCode), "have an invalid contract");
-            RemoveIf(ref valid, w => Math.Abs(w.Direction) != 1, "have an invalid direction");
-
-            // Keep only worksheets with supported prefixes
-            var supportedPrefixes = new[] { "TW", "RT", "CW" };
-            var invalidTypeIds = valid.Where(t => !supportedPrefixes.Any(p => t.WorksheetId.StartsWith(p))).Select(t => t.WorksheetId).Distinct().ToList();
-            if (invalidTypeIds.Any())
-            {
-                valid = valid.Where(t => supportedPrefixes.Any(p => t.WorksheetId.StartsWith(p))).ToList();
-                _logger.LogError("Validation Error: ({Count}) WorksheetId [{Ids}] have an invalid technical type.", invalidTypeIds.Count, string.Join(", ", invalidTypeIds));
-            }
-
-            return valid;
-        }
         private async Task ProcessTenant(string tenantCode, List<Technical> tenantWorks, CancellationToken cancellationToken)
         {
             if (!tenantWorks.Any())
@@ -82,6 +67,16 @@ namespace Tellma.InsuranceImporter
             }
 
             var tenantId = InsuranceHelper.GetTenantId(tenantCode);
+
+            var tenantProfile = await _service.GetTenantProfile(tenantId, cancellationToken);
+
+            // Log tenant info
+            _logger.LogInformation("\n \n Processing tenant {TenantCode} (ID: {TenantId}, Name: {TenantName}) with {Count} technicals worksheets. \n \n",
+                tenantCode, tenantId, tenantProfile.CompanyName, tenantWorks.Count);
+
+            // validate creation or updating of worksheets
+            RemoveIf(ref tenantWorks, r => r.TellmaDocumentId > 0 && r.PostingDate < tenantProfile.ArchiveDate, "have a posting date before or on the archive date for existing technicals");
+            RemoveIf(ref tenantWorks, r => r.PostingDate < tenantProfile.FreezeDate, "have a posting date before or on the freeze date for new technicals");
 
             // Collections to hold documents before saving
             var technicalDocuments = new List<DocumentForSave>();
@@ -139,6 +134,15 @@ namespace Tellma.InsuranceImporter
                 tenantId: tenantId,
                 definitionCode: TellmaEntityCode.InsuranceAgent.AsString(),
                 cancellationToken: cancellationToken);
+            
+            // Insured
+            await SyncAgentGroup(tenantWorks,
+                insList: insuranceAgents,
+                selector: w => new { Code = w.InsuredCode, Name = w.InsuredName },
+                predicate: w => !string.IsNullOrWhiteSpace(w.InsuredCode) && !string.IsNullOrWhiteSpace(w.InsuredName),
+                tenantId: tenantId,
+                definitionCode: TellmaEntityCode.InsuranceAgent.AsString(),
+                cancellationToken: cancellationToken);
 
             // Accounts batch
             var accountCodes = tenantWorks.SelectMany(w => new[] { w.AAccount, w.BAccount })
@@ -152,7 +156,7 @@ namespace Tellma.InsuranceImporter
 
             // Business types
             var businessTypesCodes = tenantWorks.Select(w => w.BusinessTypeCode).Distinct().Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
-            string? businessTypesFilter = businessTypesCodes.Any() ? string.Join(" OR ", businessTypesCodes.Select(b => $"Code = '{b}'")) : null;
+            string? businessTypesFilter = businessTypesCodes.Any() ? string.Join(" OR ", businessTypesCodes.Select(b => $"Code='{b}'")) : null;
             if (businessTypesFilter != null && businessTypesFilter.Length >=1024)
             {
                 businessTypesFilter = null;
@@ -185,7 +189,7 @@ namespace Tellma.InsuranceImporter
 
             // Risk countries
             var riskCountries = tenantWorks.Select(t => t.RiskCountry).Distinct().Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
-            string? riskCountriesFilter = riskCountries.Any() ? string.Join(" OR ", riskCountries.Select(r => $"Code = '{r}'")) : null;
+            string? riskCountriesFilter = riskCountries.Any() ? string.Join(" OR ", riskCountries.Select(r => $"Code='{r}'")) : null;
             if (riskCountriesFilter != null && riskCountriesFilter.Length >=1024) riskCountriesFilter = null;
             int riskCountryDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.LookupDefinitions.AsString(), TellmaEntityCode.Citizenship.AsString(), token: cancellationToken);
             var riskCountriesObjects = await _service.GetClientEntities(tenantId, TellmaClientProperty.Lookups.AsString(), riskCountryDefinitionId, riskCountriesFilter, token: cancellationToken);
@@ -196,40 +200,30 @@ namespace Tellma.InsuranceImporter
                 .Where(s => !string.IsNullOrWhiteSpace(s))
                 .Distinct()
                 .ToList();
-            string? entryTypesFilter = entryTypeConcepts.Any() ? string.Join(" OR ", entryTypeConcepts.Select(et => $"Concept = '{et}'")) : null;
+            string? entryTypesFilter = entryTypeConcepts.Any() ? string.Join(" OR ", entryTypeConcepts.Select(et => $"Concept='{et}'")) : null;
             var entryTypesObjects = await _service.GetClientEntities(tenantId, TellmaClientProperty.EntryTypes.AsString(), filter: entryTypesFilter, token: cancellationToken);
             var entryTypesResult = entryTypesObjects.ConvertAll(et => (EntryType)et);
 
             // Contracts
-            var dbContracts = tenantWorks.Select(c => new
-            {
-                Code = c.ContractCode,
-                Name = $"{c.ContractCode}: {c.ContractName}",
-                Name2 = $"{c.ContractCode}: {c.ContractName}",
-                Lookup1Id = businessTypesResult.FirstOrDefault(bt => bt.Code == c.BusinessTypeCode)?.Id,
-                Lookup3Id = riskCountriesResult.FirstOrDefault(rc => rc.Code == c.RiskCountry)?.Id,
-                FromDate = c.EffectiveDate,
-                ToDate = c.ExpiryDate,
-                Agent2Id = insuranceAgents.FirstOrDefault(ia => ia.Code == c.BrokerCode)?.Id,
-                Description2 = $"Max closing date = {tenantWorks.Where(t => t.ContractCode == c.ContractCode).Max(cc => cc.ClosingDate):yyyy-MM-dd}"
-            })
-            .Distinct()
-            .Select(c => new Agent
-            {
-                Code = c.Code,
-                Name = c.Name,
-                Name2 = c.Name,
-                Lookup1Id = c.Lookup1Id,
-                Lookup3Id = c.Lookup3Id,
-                FromDate = c.FromDate,
-                ToDate = c.ToDate,
-                Agent2Id = c.Agent2Id,
-                Description = tenantWorks.FirstOrDefault(v => v.ContractCode == c.Code)?.Description,
-                Description2 = c.Description2
-            })
-            .ToList();
+            var groupedContracts = tenantWorks
+                .GroupBy(c => c.ContractCode)
+                .Select(g => g.OrderByDescending(c => c.ExpiryDate).First())
+                .Select(c => new Agent
+                {
+                    Code = c.ContractCode,
+                    Name = $"{c.ContractCode}: {c.ContractName}",
+                    Name2 = $"{c.ContractCode}: {c.ContractName}",
+                    Lookup1Id = businessTypesResult.FirstOrDefault(bt => bt.Code == c.BusinessTypeCode)?.Id,
+                    Lookup3Id = riskCountriesResult.FirstOrDefault(rc => rc.Code == c.RiskCountry)?.Id,
+                    FromDate = c.EffectiveDate,
+                    ToDate = c.ExpiryDate,
+                    Agent2Id = insuranceAgents.FirstOrDefault(ia => ia.Code == c.BrokerCode)?.Id,
+                    Description2 = $"Max closing date = {c.ClosingDate:yyyy-MM-dd}",
+                    Description = c.Description,
+                })
+                .ToList();
 
-            var contractsResult = await _service.SyncAgents(tenantId, TellmaEntityCode.InsuranceContract.AsString(), dbContracts, cancellationToken);
+            var contractsResult = await _service.SyncAgents(tenantId, TellmaEntityCode.InsuranceContract.AsString(), groupedContracts, cancellationToken);
 
             // Partnership types
             int partnershipTypeDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.LookupDefinitions.AsString(), TellmaEntityCode.PartnershipTypes.AsString(), token: cancellationToken);
@@ -240,7 +234,7 @@ namespace Tellma.InsuranceImporter
             var globalReAgent = insuranceAgents.FirstOrDefault(ia => ia.Code == tenantCode);
             if (globalReAgent == null)
             {
-                string filter = $"Code = '{tenantCode}'";
+                string filter = $"Code='{tenantCode}'";
                 var tenantAgent = await _service.GetClientEntities(tenantId, TellmaClientProperty.Agents.AsString(), insuranceAgentDefinitionId, filter, token: cancellationToken);
                 globalReAgent = tenantAgent.ConvertAll(a => (Agent)a).FirstOrDefault();
             }
@@ -295,9 +289,9 @@ namespace Tellma.InsuranceImporter
                 .Select(c => new
                 {
                     Code = "-",
-                    Name = insuranceAgents.FirstOrDefault(ia => ia.Code == c.ReinsurerCode)?.Name,
+                    Name = insuranceAgents.FirstOrDefault(ia => ia.Code == c.InsuredCode)?.Name,
                     Agent1Id = contractsResult.FirstOrDefault(ct => ct.Code == c.ContractCode)?.Id,
-                    Agent2Id = insuranceAgents.FirstOrDefault(ia => ia.Code == c.ReinsurerCode)?.Id,
+                    Agent2Id = insuranceAgents.FirstOrDefault(ia => ia.Code == c.InsuredCode)?.Id,
                     Lookup1Id = partnershipTypesResult.FirstOrDefault(p => p.Code == "Insured")?.Id
                 })
                 .Distinct()
@@ -315,9 +309,9 @@ namespace Tellma.InsuranceImporter
                 .Select(c => new
                 {
                     Code = "-",
-                    Name = globalReName,
+                    Name = insuranceAgents.FirstOrDefault(ia => ia.Code == c.ReinsurerCode)?.Name,
                     Agent1Id = contractsResult.FirstOrDefault(ct => ct.Code == c.ContractCode)?.Id,
-                    Agent2Id = globalReId,
+                    Agent2Id = insuranceAgents.FirstOrDefault(ia => ia.Code == c.ReinsurerCode)?.Id,
                     Lookup1Id = partnershipTypesResult.FirstOrDefault(p => p.Code == "Reinsurer")?.Id
                 })
                 .Distinct()
@@ -349,8 +343,20 @@ namespace Tellma.InsuranceImporter
                 .Select(cstmr => new
                 {
                     Code = $"{cstmr.ContractCode}-{cstmr.BusinessMainClassCode}-{cstmr.AgentCode}",
-                    Name = $"{cstmr.ContractCode}-{cstmr.BusinessMainClassCode}-{cstmr.AgentCode}: {cstmr.ContractName}",
-                    Name2 = $"{cstmr.ContractCode}-{cstmr.BusinessMainClassCode}-{cstmr.AgentCode}: {cstmr.ContractName}",
+                    Name = $"{cstmr.ContractCode}-{cstmr.BusinessMainClassCode}-{cstmr.AgentCode}: " + tenantWorks
+                        .Where(tw => tw.ContractCode == cstmr.ContractCode
+                            && tw.BusinessMainClassCode == cstmr.BusinessMainClassCode
+                            && tw.AgentCode == cstmr.AgentCode)
+                        .OrderByDescending(w => w.ExpiryDate)
+                        .FirstOrDefault()?
+                        .ContractName,
+                    Name2 = $"{cstmr.ContractCode}-{cstmr.BusinessMainClassCode}-{cstmr.AgentCode}: " + tenantWorks
+                        .Where(tw => tw.ContractCode == cstmr.ContractCode
+                            && tw.BusinessMainClassCode == cstmr.BusinessMainClassCode
+                            && tw.AgentCode == cstmr.AgentCode)
+                        .OrderByDescending(w => w.ExpiryDate)
+                        .FirstOrDefault()?
+                        .ContractName,
                     Agent1Id = insuranceAgents.FirstOrDefault(ia => ia.Code == cstmr.AgentCode)?.Id,
                     Agent2Id = contractsResult.FirstOrDefault(c => c.Code == cstmr.ContractCode)?.Id,
                     Lookup2Id = mainBusinessResult.FirstOrDefault(m => m.Code == cstmr.BusinessMainClassCode)?.Id,
@@ -380,6 +386,17 @@ namespace Tellma.InsuranceImporter
             int claimDocDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.DocumentDefinitions.AsString(), TellmaEntityCode.ClaimWorksheet.AsString(), token: cancellationToken);
             int lineDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.LineDefinitions.AsString(), TellmaEntityCode.ManualLine.AsString(), token: cancellationToken);
 
+            int taxDepartmentDefinitionId = await _service.GetIdByCodeAsync(tenantId, 
+                TellmaClientProperty.AgentDefinitions.AsString(), 
+                TellmaEntityCode.TaxDepartment.AsString(), 
+                token: cancellationToken);
+
+            int vatDeptId = await _service.GetIdByCodeAsync(tenantId,
+                TellmaClientProperty.Agents.AsString(),
+                TellmaEntityCode.ValueAddedTax.AsString(),
+                taxDepartmentDefinitionId,
+                token: cancellationToken);
+
             string operationCenterCode = TellmaEntityCode.OperationCenter.AsString();
             int operationCenterId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.Centers.AsString(), operationCenterCode, token: cancellationToken);
 
@@ -395,7 +412,7 @@ namespace Tellma.InsuranceImporter
                 int inwardOutwardLookupId = technical.IsInward ? inwardLookupId : outwardLookupId;
                 int serialNumber = Convert.ToInt32(technical.WorksheetId?.Substring(2));
 
-                string memo = string.IsNullOrWhiteSpace(technical.TechnicalNotes) ? "-" : technical.TechnicalNotes;
+                string? memo = tenantWorks.Where(w => w.WorksheetId == technical.WorksheetId).Max(w => w.TechnicalNotes) ?? "-";
                 if (memo.Length >255)
                 {
                     _logger.LogWarning("Memo for worksheet {WorksheetId} exceeds255 characters and will be truncated.", technical.WorksheetId);
@@ -409,13 +426,13 @@ namespace Tellma.InsuranceImporter
                     customerAccId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.Agents.AsString(), customerAccCode, token: cancellationToken);
                 }
 
-                const int nullAgentId =369;
-
                 int accountAId = accountsResult.FirstOrDefault(a => a.Code == technical.AAccount)?.Id ??0;
                 int accountBId = accountsResult.FirstOrDefault(a => a.Code == technical.BAccount)?.Id ??0;
 
                 int? entryTypeAId = entryTypesResult.FirstOrDefault(et => et.Concept == technical.APurposeConcept)?.Id;
                 int? entryTypeBId = entryTypesResult.FirstOrDefault(et => et.Concept == technical.BPurposeConcept)?.Id;
+
+                var maxNotedDate = tenantWorks.Where(w => w.WorksheetId == technical.WorksheetId).Max(w => w.NotedDate);
 
                 var entriesList = new List<EntryForSave>
                 {
@@ -423,14 +440,15 @@ namespace Tellma.InsuranceImporter
                     {
                         AccountId = accountAId,
                         EntryTypeId = entryTypeAId,
-                        Direction = technical.ASign == "Debit" ? (short)1 : (short)-1,
+                        //Reverse direction based on Direction
+                        Direction = (short)(technical.Direction > 0 ? 1 : -1),
                         Value = technical.ValueFc2,
                         MonetaryValue = technical.ContractAmount,
-                        AgentId = !technical.ATaxAccount ? customerAccId : nullAgentId,
+                        AgentId = !technical.ATaxAccount ? customerAccId : vatDeptId,
                         NotedAgentId = technical.ATaxAccount ? customerAccId : null,
                         CurrencyId = technical.ContractCurrencyId,
                         CenterId = operationCenterId,
-                        NotedDate = technical.AHasNotedDate ? technical.NotedDate : null,
+                        NotedDate = technical.AHasNotedDate ? maxNotedDate : null,
                         Time1 = technical.EffectiveDate,
                         Time2 = technical.ExpiryDate
                     },
@@ -438,14 +456,15 @@ namespace Tellma.InsuranceImporter
                     {
                         AccountId = accountBId,
                         EntryTypeId = entryTypeBId,
-                        Direction = technical.BSign == "Debit" ? (short)1 : (short)-1,
+                        //Reverse direction based on Direction
+                        Direction = (short)(technical.Direction < 0 ? 1 : -1),
                         Value = technical.ValueFc2,
                         MonetaryValue = technical.ContractAmount,
                         CurrencyId = technical.ContractCurrencyId,
-                        AgentId = !technical.BTaxAccount ? customerAccId : nullAgentId,
+                        AgentId = !technical.BTaxAccount ? customerAccId : vatDeptId,
                         NotedAgentId = technical.BTaxAccount ? customerAccId : null,
                         CenterId = operationCenterId,
-                        NotedDate = technical.BHasNotedDate ? technical.NotedDate : null,
+                        NotedDate = technical.BHasNotedDate ? maxNotedDate : null,
                         Time1 = technical.EffectiveDate,
                         Time2 = technical.ExpiryDate
                     }
@@ -481,7 +500,7 @@ namespace Tellma.InsuranceImporter
                     {
                         Id = technical?.TellmaDocumentId ??0,
                         SerialNumber = serialNumber,
-                        PostingDate = technical?.PostingDate,
+                        PostingDate = technical?.PostingDate.AddDays(1 - technical.PostingDate.Day),
                         PostingDateIsCommon = true,
                         Lookup1Id = inwardOutwardLookupId,
                         Memo = memo,
@@ -529,6 +548,27 @@ namespace Tellma.InsuranceImporter
             }
         }
 
+        private List<Technical> ValidateWorksheets(List<Technical> worksheets)
+        {
+            var valid = worksheets.ToList();
+
+            RemoveIf(ref valid, w => string.IsNullOrWhiteSpace(w.AgentCode), "have an invalid insurance agent");
+            RemoveIf(ref valid, w => string.IsNullOrWhiteSpace(w.ContractCode), "have an invalid contract");
+            RemoveIf(ref valid, w => string.IsNullOrWhiteSpace(w.BusinessMainClassCode), "have an invalid business main class");
+            RemoveIf(ref valid, w => Math.Abs(w.Direction) != 1, "have an invalid direction");
+
+            // Keep only worksheets with supported prefixes
+            var supportedPrefixes = new[] { "TW", "RT", "CW" };
+            var invalidTypeIds = valid.Where(t => !supportedPrefixes.Any(p => t.WorksheetId.StartsWith(p))).Select(t => t.WorksheetId).Distinct().ToList();
+            if (invalidTypeIds.Any())
+            {
+                valid = valid.Where(t => supportedPrefixes.Any(p => t.WorksheetId.StartsWith(p))).ToList();
+                _logger.LogError("Validation Error: ({Count}) WorksheetId [{Ids}] have an invalid technical type.", invalidTypeIds.Count, string.Join(", ", invalidTypeIds));
+            }
+
+            return valid;
+        }
+
         private void RemoveIf(ref List<Technical> list, Func<Technical, bool> predicate, string errorMessage)
         {
             var invalid = list.Where(predicate).Select(t => t.WorksheetId).Distinct().ToList();
@@ -555,7 +595,7 @@ namespace Tellma.InsuranceImporter
                 .Distinct()
                 .ToList();
 
-            // Map anonymous objects to Agent if necessary
+            // Map anonymous objects to Agent
             var agents = items.Select(a =>
             {
                 // Use reflection to map common properties Code/Name when selector returns anonymous type
@@ -564,7 +604,16 @@ namespace Tellma.InsuranceImporter
                 var code = codeProp?.GetValue(a)?.ToString();
                 var name = nameProp?.GetValue(a)?.ToString();
                 return new Agent { Code = code, Name = name, Name2 = name };
-            }).Where(a => !string.IsNullOrWhiteSpace(a.Code)).ToList();
+            })
+                .Where(a => !string.IsNullOrWhiteSpace(a.Code))
+                .GroupBy(a => a.Code)  // Group by Code
+                .Select(g => new Agent
+                {
+                    Code = g.Key,
+                    Name = g.First().Name,  // Take the first Name in the group
+                    Name2 = g.First().Name
+                })
+                .ToList();
 
             if (!agents.Any()) return;
 
