@@ -14,6 +14,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Tellma.InsuranceImporter.Contract\Tellma.InsuranceImporter.Contract.csproj" />
     <ProjectReference Include="..\Tellma.InsuranceImporter.Repository\Tellma.InsuranceImporter.Repository.csproj" />
+    <ProjectReference Include="..\Tellma.Utilities.EmailLogger\Tellma.Utilities.EmailLogger.csproj" />
   </ItemGroup>
 
 </Project>

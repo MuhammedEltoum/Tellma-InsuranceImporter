@@ -13,12 +13,12 @@ namespace Tellma.InsuranceImporter.Repository
             var exchangeRates = new List<ExchangeRate>();
 
             using (var reader = await ExecuteReaderAsync($"" +
-                $"SELECT CurrencyId, ValidAsOf, AmountInFunctional" +
-                $" FROM ExchangeRates" +
-                $" WHERE CurrencyId <> 'USD'" +
-                $" AND Year(ValidAsOf) = {DateTime.Now.Year} " +
-                $" AND Month(ValidAsOf) = {DateTime.Now.Month} " +
-                $" ORDER BY ValidAsOf DESC"))
+                "SELECT CurrencyId, ValidAsOf, AmountInFunctional " +
+                "FROM ExchangeRates " +
+                "WHERE CurrencyId <> 'USD' " +
+                $"AND Year(ValidAsOf) = {DateTime.Now.Year} " +
+                $"AND Month(ValidAsOf) = {DateTime.Now.Month} " +
+                "ORDER BY ValidAsOf DESC"))
             {
                 while (await reader.ReadAsync())
                 {

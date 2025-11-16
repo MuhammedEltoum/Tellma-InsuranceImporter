@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Tellma.InsuranceImporter")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+93ffc7cb9a30c0a90efccf27f6e184a60870c109")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4f51565903d8cc6e929c47ea8b25b6fce4997641")]
 [assembly: System.Reflection.AssemblyProductAttribute("Tellma.InsuranceImporter")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Tellma.InsuranceImporter")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

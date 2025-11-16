@@ -9,58 +9,85 @@ namespace Tellma.InsuranceImporter.Repository
     public class TechnicalRepository : RepositoryBase, IWorksheetRepository<Technical>
     {
         public TechnicalRepository(IOptions<InsuranceDBOptions> dbOptions) : base(dbOptions.Value.ConnectionString) { }
+
+        public async Task<List<Technical>> GetMappingAccounts(CancellationToken token)
+        {
+            List<Technical> technicalsList = new List<Technical>();
+
+            string selectQuery = "SELECT [SICS_Account], " +
+                                  "[IS_INWARD], " +
+                                  "[A Account], " +
+                                  "[A TAX Account], " +
+                                  "[A Purpose - Concept], " +
+                                  "[A Has NOTED_DATE], " +
+                                  "[B Account], " +
+                                  "[B TAX Account], " +
+                                  "[B Purpose - Concept], " +
+                                  "[B Has NOTED_DATE] " +
+                              "FROM [dbo].[Tellma_Mapping_Technical];";
+
+            using (var reader = await ExecuteReaderAsync(selectQuery))
+            {
+                while (await reader.ReadAsync())
+                {
+                    technicalsList.Add(new Technical
+                    {
+                        AccountCode = reader.GetString(0),
+                        IsInward = reader.GetByte(1) > 0 ? true : false,
+                        AAccount = reader.GetString(2),
+                        ATaxAccount = !reader.IsDBNull(3) ? reader.GetBoolean(3) : false,
+                        APurposeConcept = !reader.IsDBNull(4) ? reader.GetString(4) : null,
+                        AHasNotedDate = !reader.IsDBNull(5) ? reader.GetBoolean(5) : false,
+                        BAccount = !reader.IsDBNull(6) ? reader.GetString(6) : null,
+                        BTaxAccount = !reader.IsDBNull(7) ? reader.GetBoolean(7) : false,
+                        BPurposeConcept = !reader.IsDBNull(8) ? reader.GetString(8) : null,
+                        BHasNotedDate = !reader.IsDBNull(9) ? reader.GetBoolean(9) : false
+                    });
+                }
+            }
+            return technicalsList;
+        }
+
         public async Task<List<Technical>> GetWorksheets(CancellationToken token)
         {
             List<Technical> technicalsList = new List<Technical>();
-            string selectQuery = "SELECT [PK]" +
-                                  ",[WORKSHEET_ID]" +
-                                  ",[DESCRIPTION]" +
-                                  ",[POSTING_DATE]" +
-                                  ",[CLOSING_DATE]" +
-                                  ", T.[IS_INWARD]" +
-                                  ",[CONTRACT_CODE]" +
-                                  ",[CONTRACT_NAME]" +
-                                  ",[BUSINESS_TYPE_CODE]" +
-                                  ",[BUSINESS_MAIN_CLASS_CODE]" +
-                                  ",[BUSINESS_MAIN_CLASS_NAME]" +
-                                  ",[AGENT_CODE]" +
-                                  ",[AGENT_NAME]" +
-                                  ",[BROKER_CODE]" +
-                                  ",[BROKER_NAME]" +
-                                  ",[CEDANT_CODE]" +
-                                  ",[CEDANT_NAME]" +
-                                  ",[REINSURER_CODE]" +
-                                  ",[REINSURER_NAME]" +
-                                  ",[INSURED_CODE]" +
-                                  ",[INSURED_NAME]" +
-                                  ",[RISK_COUNTRY]" +
-                                  ",[EFFECTIVE_DATE]" +
-                                  ",[EXPIRY_DATE]" +
-                                  ",[DIRECTION]" +
-                                  ",[CONTRACT_AMOUNT]" +
-                                  ",[CONTRACT_CURRENCY_ID]" +
-                                  ",[VALUE_FC2]" +
-                                  ",[CHANNEL_CODE]" +
-                                  ",[CHANNEL_NAME]" +
-                                  ",[NOTED_DATE]" +
-                                  ",[TENANT_CODE]" +
-                                  ",[TENANT_NAME]" +
-                                  ",[TELLMA_DOCUMENT_ID]" +
-                                  ",[ACCOUNT_CODE]" +
-                                  ",[Technical_Notes]" +
-                                  ",TMT.[A Account]" +
-                                  ",TMT.[A sign]" +
-                                  ",TMT.[A TAX Account]" +
-                                  ",TMT.[A Purpose - Concept]" +
-                                  ",TMT.[A Has NOTED_DATE]" +
-                                  ",TMT.[B Account]" +
-                                  ",TMT.[B sign]" +
-                                  ",TMT.[B TAX Account]" +
-                                  ",TMT.[B Purpose - Concept]" +
-                                  ",TMT.[B Has NOTED_DATE]" +
-                              "FROM [dbo].[Technicals] T " +
-                                "INNER JOIN Tellma_Mapping_Technical TMT " +
-                                "ON T.IS_INWARD = TMT.IS_INWARD AND T.ACCOUNT_CODE = TMT.SICS_Account " +
+            string selectQuery = "SELECT [PK], " +
+                                  "[WORKSHEET_ID], " +
+                                  "[DESCRIPTION], " +
+                                  "[POSTING_DATE], " +
+                                  "[CLOSING_DATE], " +
+                                  "[IS_INWARD], " +
+                                  "[CONTRACT_CODE], " +
+                                  "[CONTRACT_NAME], " +
+                                  "[BUSINESS_TYPE_CODE], " +
+                                  "[BUSINESS_MAIN_CLASS_CODE], " +
+                                  "[BUSINESS_MAIN_CLASS_NAME], " +
+                                  "[AGENT_CODE], " +
+                                  "[AGENT_NAME], " +
+                                  "[BROKER_CODE], " +
+                                  "[BROKER_NAME], " +
+                                  "[CEDANT_CODE], " +
+                                  "[CEDANT_NAME], " +
+                                  "[REINSURER_CODE], " +
+                                  "[REINSURER_NAME], " +
+                                  "[INSURED_CODE], " +
+                                  "[INSURED_NAME], " +
+                                  "[RISK_COUNTRY], " +
+                                  "[EFFECTIVE_DATE], " +
+                                  "[EXPIRY_DATE], " +
+                                  "[DIRECTION], " +
+                                  "[CONTRACT_AMOUNT], " +
+                                  "[CONTRACT_CURRENCY_ID], " +
+                                  "[VALUE_FC2], " +
+                                  "[CHANNEL_CODE], " +
+                                  "[CHANNEL_NAME], " +
+                                  "[NOTED_DATE], " +
+                                  "[TENANT_CODE], " +
+                                  "[TENANT_NAME], " +
+                                  "[TELLMA_DOCUMENT_ID], " +
+                                  "[ACCOUNT_CODE], " +
+                                  "[Technical_Notes]" +
+                              "FROM [dbo].[Technicals]" +
                               "WHERE [TRANSFER_TO_TELLMA] = N'N' AND [IMPORT_DATE] IS NULL AND VALUE_FC2 <> 0;";
             using (var reader = await ExecuteReaderAsync(selectQuery))
             {
@@ -103,17 +130,7 @@ namespace Tellma.InsuranceImporter.Repository
                         TenantName = reader.GetString(32),
                         TellmaDocumentId = !reader.IsDBNull(33) ? reader.GetInt32(33) : 0,
                         AccountCode = reader.GetString(34),
-                        TechnicalNotes = !reader.IsDBNull(35) ? reader.GetString(35) : null,
-                        AAccount = !reader.IsDBNull(36) ? reader.GetString(36) : null,
-                        ASign = !reader.IsDBNull(37) ? reader.GetString(37) : null,
-                        ATaxAccount = !reader.IsDBNull(38) ? reader.GetBoolean(38) : false,
-                        APurposeConcept = !reader.IsDBNull(39) ? reader.GetString(39) : null,
-                        AHasNotedDate = !reader.IsDBNull(40) ? reader.GetBoolean(40) : false,
-                        BAccount = !reader.IsDBNull(41) ? reader.GetString(41) : null,
-                        BSign = !reader.IsDBNull(42) ? reader.GetString(42) : null,
-                        BTaxAccount = !reader.IsDBNull(43) ? reader.GetBoolean(43) : false,
-                        BPurposeConcept = !reader.IsDBNull(44) ? reader.GetString(44) : null,
-                        BHasNotedDate = !reader.IsDBNull(45) ? reader.GetBoolean(45) : false
+                        TechnicalNotes = !reader.IsDBNull(35) ? reader.GetString(35) : null
                     });
                 }
             }

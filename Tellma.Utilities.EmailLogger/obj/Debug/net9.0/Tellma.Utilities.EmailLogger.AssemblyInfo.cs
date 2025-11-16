@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Tellma.Utilities.EmailLogger")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1cf9a80415a69b7ca0ad1f5db75cc02716754a44")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4f51565903d8cc6e929c47ea8b25b6fce4997641")]
 [assembly: System.Reflection.AssemblyProductAttribute("Tellma.Utilities.EmailLogger")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Tellma.Utilities.EmailLogger")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -33,3 +33,5 @@ D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter\obj\Debug\
 D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter\obj\Debug\net9.0\refint\Tellma.InsuranceImporter.dll
 D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter\obj\Debug\net9.0\Tellma.InsuranceImporter.pdb
 D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter\obj\Debug\net9.0\ref\Tellma.InsuranceImporter.dll
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter\bin\Debug\net9.0\Tellma.Utilities.EmailLogger.dll
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter\bin\Debug\net9.0\Tellma.Utilities.EmailLogger.pdb

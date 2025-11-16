@@ -28,8 +28,9 @@ namespace Tellma.InsuranceImporter.WindowsService
                     var reader = scope.ServiceProvider.GetRequiredService<TellmaInsuranceImporter>();
                     await reader.ImportToTellma(stoppingToken);
                     //var reader = scope.ServiceProvider.GetRequiredService<ITellmaService>();
-                    //await reader.DeleteDocumentsByDefinitionId(1303, 93, stoppingToken);
-                    //await reader.DeleteDocumentsByDefinitionId(1303, 90, stoppingToken);
+                    //await reader.DeleteDocumentsByDefinitionId(1303, 93, stoppingToken); //Technicals
+                    //await reader.DeleteDocumentsByDefinitionId(1303, 92, stoppingToken); //Remittance
+                    //await reader.DeleteDocumentsByDefinitionId(1303, 90, stoppingToken); //Claims
 
                     //await reader.DeleteAgentsByDefinition(1303, 81, stoppingToken);    //BP
                     //await reader.DeleteAgentsByDefinition(1303, 103, stoppingToken);    //CussAcc

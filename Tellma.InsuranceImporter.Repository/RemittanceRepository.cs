@@ -10,50 +10,27 @@ namespace Tellma.InsuranceImporter.Repository
         public async Task<List<Remittance>> GetWorksheets(CancellationToken token)
         {
             List<Remittance> remittancesList = new List<Remittance>();
-            string selectQuery = "SELECT [PK]" +
-                                    ",[WORKSHEET_ID]" +
-                                    ",[PAYMENT_DATE]" +
-                                    ",[REFERENCE]" +
-                                    ",[AGENT_CODE]" +
-                                    ",[AGENT_Name]" +
-                                    ",[TENANT_CODE]" +
-                                    ",R.[DIRECTION]" +
-                                    ",[TRANSFER_AMOUNT]" +
-                                    ",[TRANSFER_CURRENCY_ID]" +
-                                    ",[BANK_ACCOUNT_AMOUNT]" +
-                                    ",[BANK_ACCOUNT_FEE]" +
-                                    ",[BANK_ACCOUNT_CURRENCY_ID]" +
-                                    ",[BANK_ACCOUNT_CODE]" +
-                                    ",[BANK_ACCOUNT_NAME]" +
-                                    ",[VALUE_FC2]" +
-                                    ",[RemitType]" +
-                                    ",TMR.[RemittanceTypeName]" +
-                                    ",[Remittance_Notes]" +
-                                    ",TMR.[A Account]" +
-                                    ",TMR.[ANotedAgentId]" +
-                                    ",TMR.[AResourceId]" +
-                                    ",TMR.[ANotedResourceId]" +
-                                    ",TMR.[A Purpose - Concept]" +
-                                    ",TMR.[A Purpose - Id]" +
-                                    ",TMR.[A Direction]" +
-                                    ",TMR.[A Quantity]" +
-                                    ",TMR.[A Has NOTED_DATE]" +
-                                    ",TMR.[A Is Bank_Account?]" +
-                                    ",TMR.[B Account]" +
-                                    ",TMR.[BNotedAgentId]" +
-                                    ",TMR.[BResourceId]" +
-                                    ",TMR.[BNotedResourceId]" +
-                                    ",TMR.[B Purpose - Concept]" +
-                                    ",TMR.[B Purpose - Id]" +
-                                    ",TMR.[B Direction]" +
-                                    ",TMR.[B Quantity]" +
-                                    ",TMR.[B Has NOTED_DATE] " +
-                                    ",TMR.[B Is Bank_Account?]" +
-                                    ",[TELLMA_DOCUMENT_ID]" +
-                                "FROM [Remittances] R " +
-                                "LEFT JOIN Tellma_Mapping_Remittance TMR " +
-                                "ON R.RemitType = TMR.RemittanceTypeCode AND R.DIRECTION = TMR.Direction " +
-                                "WHERE TRANSFER_TO_TELLMA = N'N' AND R.IMPORT_DATE IS NULL AND VALUE_FC2 <> 0;";
+            string selectQuery = "SELECT [PK], " +
+                                    "[WORKSHEET_ID], " +
+                                    "[PAYMENT_DATE], " +
+                                    "[REFERENCE], " +
+                                    "[AGENT_CODE], " +
+                                    "[AGENT_Name], " +
+                                    "[TENANT_CODE], " +
+                                    "[DIRECTION], " +
+                                    "[TRANSFER_AMOUNT], " +
+                                    "[TRANSFER_CURRENCY_ID], " +
+                                    "[BANK_ACCOUNT_AMOUNT], " +
+                                    "[BANK_ACCOUNT_FEE], " +
+                                    "[BANK_ACCOUNT_CURRENCY_ID], " +
+                                    "[BANK_ACCOUNT_CODE], " +
+                                    "[BANK_ACCOUNT_NAME], " +
+                                    "[VALUE_FC2], " +
+                                    "[RemitType], " +
+                                    "[Remittance_Notes], " +
+                                    "[TELLMA_DOCUMENT_ID] " +
+                                "FROM [Remittances] " +
+                                "WHERE TRANSFER_TO_TELLMA = N'N' AND IMPORT_DATE IS NULL AND VALUE_FC2 <> 0;";
             using (var reader = await ExecuteReaderAsync(selectQuery))
             {
                 while (await reader.ReadAsync())
@@ -77,29 +54,70 @@ namespace Tellma.InsuranceImporter.Repository
                         BankAccountName = reader.GetString(14),
                         ValueFC2 = Math.Round(reader.GetDecimal(15), 6),
                         RemittanceType = reader.GetString(16),
-                        RemittanceTypeName = reader.GetString(17),
-                        RemittanceNotes = !reader.IsDBNull(18) ? reader.GetString(18) : null,
-                        AAccount = reader.GetString(19),
-                        ANotedAgentId = !reader.IsDBNull(20) ? reader.GetInt32(20) : null,
-                        AResourceId = !reader.IsDBNull(21) ? reader.GetInt32(21) : null,
-                        ANotedResourceId = !reader.IsDBNull(22) ? reader.GetInt32(22) : null,
-                        APurposeConcept = reader.GetString(23),
-                        APurposeId = reader.GetInt32(24),
-                        ADirection = Convert.ToSByte(reader.GetByte(25)),
-                        AQuantity = !reader.IsDBNull(26) ? Convert.ToByte(reader.GetBoolean(26)) : null,
-                        AHasNOTEDDATE = reader.GetBoolean(27),
-                        AIsBankAcc = reader.GetBoolean(28),
-                        BAccount = reader.GetString(29),
-                        BNotedAgentId = !reader.IsDBNull(30) ? reader.GetInt32(30) : null,
-                        BResourceId = !reader.IsDBNull(31) ? reader.GetInt32(31) : null,
-                        BNotedResourceId = !reader.IsDBNull(32) ? reader.GetInt32(32) : null,
-                        BPurposeConcept = reader.GetString(33),
-                        BPurposeId = reader.GetInt32(34),
-                        BDirection = Convert.ToSByte(reader.GetInt32(35)),
-                        BQuantity = !reader.IsDBNull(36) ? Convert.ToByte(reader.GetBoolean(36)) : null,
-                        BHasNOTEDDATE = reader.GetBoolean(37),
-                        BIsBankAcc = reader.GetBoolean(38),
-                        DocumentId = !reader.IsDBNull(39) ? reader.GetInt32(39) : 0
+                        RemittanceNotes = !reader.IsDBNull(17) ? reader.GetString(17) : null,
+                        DocumentId = !reader.IsDBNull(18) ? reader.GetInt32(18) : 0
+                    });
+                }
+            }
+            return remittancesList;
+        }
+
+        public async Task<List<Remittance>> GetMappingAccounts(CancellationToken token)
+        {
+            List<Remittance> remittancesList = new List<Remittance>();
+            string selectQuery = "SELECT [RemittanceTypeCode], " +
+                                    "[RemittanceTypeName], " +
+                                    "[Direction], " +
+                                    "[A Account], " +
+                                    "[ANotedAgentId], " +
+                                    "[AResourceId], " +
+                                    "[ANotedResourceId], " +
+                                    "[A Purpose - Concept], " +
+                                    "[A Purpose - Id], " +
+                                    "[A Direction], " +
+                                    "[A Quantity], " +
+                                    "[A Has NOTED_DATE], " +
+                                    "[A Is Bank_Account?], " +
+                                    "[B Account], " +
+                                    "[BNotedAgentId], " +
+                                    "[BResourceId], " +
+                                    "[BNotedResourceId], " +
+                                    "[B Purpose - Concept], " +
+                                    "[B Purpose - Id], " +
+                                    "[B Direction], " +
+                                    "[B Quantity], " +
+                                    "[B Has NOTED_DATE] , " +
+                                    "[B Is Bank_Account?] " +
+                                "FROM [Tellma_Mapping_Remittance];";
+            using (var reader = await ExecuteReaderAsync(selectQuery))
+            {
+                while (await reader.ReadAsync())
+                {
+                    remittancesList.Add(new Remittance
+                    {
+                        RemittanceType = reader.GetString(0),
+                        RemittanceTypeName = reader.GetString(1),
+                        Direction = Convert.ToSByte(reader.GetInt16(2)),
+                        AAccount = reader.GetString(3),
+                        ANotedAgentId = !reader.IsDBNull(4) ? reader.GetInt32(4) : null,
+                        AResourceId = !reader.IsDBNull(5) ? reader.GetInt32(5) : null,
+                        ANotedResourceId = !reader.IsDBNull(6) ? reader.GetInt32(6) : null,
+                        APurposeConcept = reader.GetString(7),
+                        APurposeId = reader.GetInt32(8),
+                        ADirection = Convert.ToSByte(reader.GetByte(9)),
+                        AQuantity = !reader.IsDBNull(10) ? Convert.ToByte(reader.GetBoolean(10)) : null,
+                        AHasNOTEDDATE = reader.GetBoolean(11),
+                        AIsBankAcc = reader.GetBoolean(12),
+                        BAccount = reader.GetString(13),
+                        BNotedAgentId = !reader.IsDBNull(14) ? reader.GetInt32(14) : null,
+                        BResourceId = !reader.IsDBNull(15) ? reader.GetInt32(15) : null,
+                        BNotedResourceId = !reader.IsDBNull(16) ? reader.GetInt32(16) : null,
+                        BPurposeConcept = reader.GetString(17),
+                        BPurposeId = reader.GetInt32(18),
+                        BDirection = Convert.ToSByte(reader.GetInt32(19)),
+                        BQuantity = !reader.IsDBNull(20) ? Convert.ToByte(reader.GetBoolean(20)) : null,
+                        BHasNOTEDDATE = reader.GetBoolean(21),
+                        BIsBankAcc = reader.GetBoolean(22),
                     });
                 }
             }
@@ -135,3 +153,6 @@ namespace Tellma.InsuranceImporter.Repository
         }
     }
 }
+
+
+                                

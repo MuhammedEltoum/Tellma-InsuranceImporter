@@ -2,11 +2,13 @@
 using Microsoft.Extensions.Options;
 using System.Data;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using Tellma.Api.Dto;
 using Tellma.Client;
 using Tellma.InsuranceImporter.Enums;
 using Tellma.Model.Application;
+using Tellma.Utilities.EmailLogger;
 
 namespace Tellma.InsuranceImporter
 {
@@ -14,7 +16,8 @@ namespace Tellma.InsuranceImporter
     {
         private readonly TellmaClient _client;
         private readonly ILogger<TellmaService> _logger;
-        public TellmaService(ILogger<TellmaService> logger, IOptions<TellmaOptions> options)
+        private readonly EmailLogger _emailLogger;
+        public TellmaService(ILogger<TellmaService> logger, EmailLogger emailLogger, IOptions<TellmaOptions> options)
         {
             _client = new TellmaClient(
                 baseUrl: "https://web.tellma.com",
@@ -24,6 +27,7 @@ namespace Tellma.InsuranceImporter
                 );
 
             _logger = logger;
+            _emailLogger = emailLogger;
         }
 
         public async Task SaveExchangeRates(int tenantId, List<ExchangeRateForSave> exchangeRates, CancellationToken cancellationToken)
@@ -131,9 +135,10 @@ namespace Tellma.InsuranceImporter
 
             int agentDefinitionId = await GetIdByCodeAsync(tenantId, TellmaClientProperty.AgentDefinitions.AsString(), definitionCode, token: cancellationToken);
 
-            //Will use batch validation for agents.
+            // batch validation for agents.
             var agentsCodesFromDB = dbAgentsCopy
                 .Select(t => t.Code)
+                .Distinct()
                 .ToList();
             string? batchFilter = String.Join(" OR ", agentsCodesFromDB.Select(t => $"Code='{t}'"));
 
@@ -148,7 +153,7 @@ namespace Tellma.InsuranceImporter
 
             var agentsResult = agentsObjectResult.ConvertAll(agent => (Agent)agent);
 
-            //Remove agents from dbAgentsCopy that are already existing in tellma with same properties.
+            // Remove agents from dbAgentsCopy that are already existing in tellma with same properties.
             foreach (var dbAgent in dbAgentsCopy)
             {
                 if (agentsResult.Any(tellmaAgent => (tellmaAgent.Code == dbAgent.Code
@@ -166,7 +171,30 @@ namespace Tellma.InsuranceImporter
                     && tellmaAgent.Agent2Id == dbAgent.Agent2Id
                     && tellmaAgent.Lookup1Id == dbAgent.Lookup1Id)))
                 {
-                    dbAgentsCopy = dbAgentsCopy.Where(a => a.Code != dbAgent.Code).ToList();
+                    if (isBusinessPartnerAgent)
+                    {
+                        var x = agentsResult.First(agentsResult => agentsResult.Agent1Id == dbAgent.Agent1Id
+                            && agentsResult.Agent2Id == dbAgent.Agent2Id
+                            && agentsResult.Lookup1Id == dbAgent.Lookup1Id);
+
+                        dbAgentsCopy = dbAgentsCopy.Where(a => !(a.Agent1Id == dbAgent.Agent1Id
+                                                            && a.Lookup1Id == dbAgent.Lookup1Id)).ToList();
+                    }
+                    else
+                    {
+                        dbAgentsCopy = dbAgentsCopy.Where(a => a.Code != dbAgent.Code).ToList();
+                    }
+                }
+                else
+                {
+                    // Condition for updating business partners. This extra check is needed because business partners don't have unique codes from SICS.
+                    if (isBusinessPartnerAgent && agentsResult.Any(tellmaAgent => tellmaAgent.Agent1Id == dbAgent.Agent1Id
+                        && tellmaAgent.Lookup1Id == dbAgent.Lookup1Id))
+                    {
+                        var tellmaAgent = agentsResult.First(tellmaAgent => tellmaAgent.Agent1Id == dbAgent.Agent1Id && tellmaAgent.Lookup1Id == dbAgent.Lookup1Id);
+                        dbAgent.Id = tellmaAgent.Id;
+                        dbAgent.Code = tellmaAgent.Code;
+                    }
                 }
             }
 
@@ -231,6 +259,10 @@ namespace Tellma.InsuranceImporter
                         description = dbAgent.Description; // Description
                         description2 = dbAgent.Description2; // Final closing date
                         fromDate = dbAgent.FromDate;
+
+                        if (tellmaAgent != null)
+                            fromDate = (dbAgent.FromDate <= tellmaAgent.FromDate ? dbAgent.FromDate : tellmaAgent.FromDate) ?? dbAgent.FromDate;
+
                         toDate = dbAgent.ToDate;
                         break;
 
@@ -242,23 +274,12 @@ namespace Tellma.InsuranceImporter
                         break;
 
                     case "BusinessPartner":
+                        code = dbAgent.Code != "-" ? dbAgent.Code : "BP" + (++serial).ToString("00000");
+                        agentName = $"{code}: {dbAgent.Name}";
+
                         agent1Id = dbAgent.Agent1Id; // Contract
                         agent2Id = dbAgent.Agent2Id; // Partner Agent
                         lookup1Id = dbAgent.Lookup1Id; // Partnership Type
-
-                        tellmaAgent = agentsResult.FirstOrDefault(tellmaAgent => tellmaAgent.Agent1Id == dbAgent.Agent1Id
-                                                && tellmaAgent.Agent2Id == dbAgent.Agent2Id
-                                                && tellmaAgent.Lookup1Id == dbAgent.Lookup1Id);
-
-                        if (tellmaAgent != null)
-                        {
-                            code = tellmaAgent.Code;
-                            agentName = tellmaAgent.Name;
-                            break;
-                        }
-
-                        code = "BP" + (++serial).ToString("00000");
-                        agentName = $"{code}: {dbAgent.Name}";
                         break;
 
                     default:
@@ -403,12 +424,19 @@ namespace Tellma.InsuranceImporter
 
         public async Task DeleteDocumentsByDefinitionId(int tenantId, int documentDefinitionId, CancellationToken token)
         {
+            int[] worksheetSerials = [3837, 3457, 1396, 4245, 2752, 3455, 1437, 2699, 1429, 2913, 3825, 3456, 1310, 1424, 1432, 1420, 5104, 5119, 5249, 5356, 5621, 5619, 5649, 5791, 5797, 6089, 6103, 6141, 6201, 6221, 6222, 6249, 1369];
+            int minSerial = worksheetSerials.Min();
+            int maxSerial = worksheetSerials.Max();
+
+            string serialFilter = $"SerialNumber >= {minSerial} AND SerialNumber <= {maxSerial}";
+
             var tellmaClient = _client.Application(tenantId);
             var documentResult = await tellmaClient
                 .Documents(documentDefinitionId)
                 .GetFact(new FactArguments
                 {
                     Select = "Id, State",
+                    Filter = $"CreatedBy.Id = 77 AND {serialFilter}",
                     Top = 1000
                 }, token);
 
@@ -539,7 +567,8 @@ namespace Tellma.InsuranceImporter
 
         public void LogTellmaError(Exception ex)
         {
-            throw new Exception($"Tellma API Error: {ex.ToString()}");
+            _logger.LogError(new Exception(ex.ToString()), "Tellma API Error");
+            throw ex;
         }
 
         public async Task<int> GetAgentMaxSerialNumber(int tenantId, int agentDefinitionId, CancellationToken token)

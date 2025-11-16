@@ -6,9 +6,9 @@ namespace Tellma.Utilities.EmailLogger
     public class EmailLoggerProvider : ILoggerProvider
     {
         private readonly EmailLogger _logger;
-        public EmailLoggerProvider(IOptions<EmailOptions> options)
+        public EmailLoggerProvider(EmailLogger logger)
         {
-            _logger = new EmailLogger(options.Value);
+            _logger = logger;
         }
         public ILogger CreateLogger(string categoryName)
         {

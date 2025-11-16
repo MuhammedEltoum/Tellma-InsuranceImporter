@@ -9,5 +9,10 @@
         public bool SmtpUseSsl { get; set; }
         public string? SmtpUsername { get; set; }
         public string? SmtpPassword { get; set; }
+
+        // Additional properties for detailed report.
+        public string? ReportEmailAddresses { get; set; }
+        public bool EnableDetailedReports { get; set; }
+        public string[]? ReportLogLevels { get; set; }
     }
 }

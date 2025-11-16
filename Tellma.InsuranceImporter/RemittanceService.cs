@@ -4,6 +4,7 @@ using Tellma.InsuranceImporter.Contract;
 using Tellma.InsuranceImporter.Repository;
 using Tellma.Model.Application;
 using Tellma.InsuranceImporter.Enums;
+using Tellma.Utilities.EmailLogger;
 
 namespace Tellma.InsuranceImporter
 {
@@ -19,42 +20,28 @@ namespace Tellma.InsuranceImporter
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
         
-        public async Task Import(CancellationToken cancellationToken)
+        public async Task Import(string tenantCode, CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var allWorksheets = (await _repository.GetWorksheets(cancellationToken)).ToList();
 
             var validWorksheets = ValidateWorksheets(allWorksheets);
 
-            if (!validWorksheets.Any())
+            var tenantWorks = validWorksheets.Where(t => t.TenantCode == tenantCode).ToList();
+
+            try
             {
-                _logger.LogWarning("No valid worksheets found to import.");
-                return;
+                await ProcessTenant(tenantCode, tenantWorks, cancellationToken);
             }
-
-
-            var tenantCodes = validWorksheets.Select(t => t.TenantCode).Distinct().ToList();
-
-            foreach (var tenantCode in tenantCodes)
+            catch (OperationCanceledException)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                
-                //only process IR1 tenant for now
-                if (tenantCode != "IR160") continue;
-
-                var tenantWorks = validWorksheets.Where(t => t.TenantCode == tenantCode).ToList();
-
-                try
-                {
-                    await ProcessTenant(tenantCode, tenantWorks, cancellationToken);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "An error occurred while processing tenant {TenantCode}", tenantCode);
-                }
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while processing tenant {TenantCode}", tenantCode);
+                throw;
             }
         }
 
@@ -66,6 +53,7 @@ namespace Tellma.InsuranceImporter
                 return;
             }
 
+            var mappingAccountsTask = _repository.GetMappingAccounts(cancellationToken);
             var tenantId = InsuranceHelper.GetTenantId(tenantCode);
 
             var tenantProfile = await _service.GetTenantProfile(tenantId, cancellationToken);
@@ -129,7 +117,7 @@ namespace Tellma.InsuranceImporter
                 _logger.LogError("Validation Error: ({Count}) WorksheetIds [{Ids}] bank accounts are not defined in tellma.", missingBARemittances.Count, string.Join(", ", missingBARemittances));
             }
 
-            //BankAccounts-Currencies validation
+            // BankAccounts-Currencies validation
             var tellmaBankAccCurrencies = bankAccountsResult
                 .Select(ba => ba.Text3 + " - " + ba.CurrencyId)
                 .Distinct();
@@ -147,6 +135,21 @@ namespace Tellma.InsuranceImporter
 
                 _logger.LogError("Validation Error: ({Count}) WorksheetIds [{Ids}] bank accounts and their currencies do not match tellma.", missingBACurrencyRemittances.Count(), string.Join(", ", missingBACurrencyRemittances));
             }
+
+            var mappingAccounts = await mappingAccountsTask;
+
+            // Remove worksheets with invalid remittance type.
+            var supportedRemittanceTypes = mappingAccounts.Select(ma => ma.RemittanceType.ToLower()).Distinct().ToList();
+            var invalidTypeIds = validRemittanceList.Where(r => !supportedRemittanceTypes.Any(rt => r.RemittanceType.ToLower().Equals(rt))).Select(t => t.WorksheetId).Distinct().ToList();
+            if (invalidTypeIds.Any())
+            {
+                validRemittanceList = validRemittanceList.Where(r => supportedRemittanceTypes.Any(rt => r.RemittanceType.ToLower().Equals(rt))).ToList();
+                _logger.LogError("Validation Error: ({Count}) WorksheetId [{Ids}] have an invalid remittance type.", invalidTypeIds.Count, string.Join(", ", invalidTypeIds));
+            }
+
+            validRemittanceList = MapRemittanceAccounts(validRemittanceList, mappingAccounts);
+
+            validRemittanceList = ValidateWorksheets(validRemittanceList);
 
             if (!validRemittanceList.Any())
             {
@@ -329,9 +332,40 @@ namespace Tellma.InsuranceImporter
             }
             catch (Exception ex)
             {
-                //continue insurance upload.
-                _logger.LogError($"An error occured while importing remittances. \r {ex.ToString()}");
+                // Continue insurance upload.
+                _logger.LogError(ex, "An error occured while importing remittances.}");
+                throw;
             }
+        }
+
+        private List<Remittance> MapRemittanceAccounts(List<Remittance> validRemittanceList, List<Remittance> mappingAccounts)
+        {
+            foreach (var remittance in validRemittanceList)
+            {
+                var mappingAccount = mappingAccounts.FirstOrDefault(ma => ma.RemittanceType.ToLower() == remittance.RemittanceType.ToLower()
+                                                                        && ma.Direction == remittance.Direction);
+                if (mappingAccount != null)
+                {
+                    remittance.RemittanceTypeName = mappingAccount.RemittanceTypeName;
+                    remittance.AAccount = mappingAccount.AAccount;
+                    remittance.BAccount = mappingAccount.BAccount;
+                    remittance.APurposeConcept = mappingAccount.APurposeConcept;
+                    remittance.BPurposeConcept = mappingAccount.BPurposeConcept;
+                    remittance.ADirection = mappingAccount.ADirection;
+                    remittance.BDirection = mappingAccount.BDirection;
+                    remittance.AIsBankAcc = mappingAccount.AIsBankAcc;
+                    remittance.BIsBankAcc = mappingAccount.BIsBankAcc;
+                    remittance.ANotedAgentId = mappingAccount.ANotedAgentId;
+                    remittance.BNotedAgentId = mappingAccount.BNotedAgentId;
+                    remittance.AResourceId = mappingAccount.AResourceId;
+                    remittance.BResourceId = mappingAccount.BResourceId;
+                    remittance.ANotedResourceId = mappingAccount.ANotedResourceId;
+                    remittance.BNotedResourceId = mappingAccount.BNotedResourceId;
+                    remittance.AHasNOTEDDATE = mappingAccount.AHasNOTEDDATE;
+                    remittance.BHasNOTEDDATE = mappingAccount.BHasNOTEDDATE;
+                }
+            }
+            return validRemittanceList;
         }
 
         private List<Remittance> ValidateWorksheets(List<Remittance> worksheets)
@@ -347,7 +381,7 @@ namespace Tellma.InsuranceImporter
             if (invalidTypeIds.Any())
             {
                 valid = valid.Where(t => supportedPrefixes.Any(p => t.WorksheetId.StartsWith(p))).ToList();
-                _logger.LogError("Validation Error: ({Count}) WorksheetId [{Ids}] have an invalid technical type.", invalidTypeIds.Count, string.Join(", ", invalidTypeIds));
+                _logger.LogError("Validation Error: ({Count}) WorksheetId [{Ids}] have an invalid remittance prefix.", invalidTypeIds.Count, string.Join(", ", invalidTypeIds));
             }
 
             return valid;

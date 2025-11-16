@@ -28,20 +28,20 @@
         public int? AResourceId { get; set; } = 0;
         public int? ANotedResourceId { get; set; } = 0;
         public string? APurposeConcept { get; set; }
-        public int APurposeId { get; set; }
+        public int APurposeId { get; set; } = 0;
         public sbyte ADirection { get; set; }
-        public byte? AQuantity { get; set; }
-        public bool AHasNOTEDDATE { get; set; }
-        public bool AIsBankAcc { get; set; }
+        public byte? AQuantity { get; set; } = 0;
+        public bool AHasNOTEDDATE { get; set; } = false;
+        public bool AIsBankAcc { get; set; } = false;
         public string? BAccount { get; set; }
         public int? BNotedAgentId { get; set; } = 0;
         public int? BResourceId { get; set; } = 0;
         public int? BNotedResourceId { get; set; } = 0;
         public string? BPurposeConcept { get; set; }
-        public int BPurposeId { get; set; }
+        public int BPurposeId { get; set; } = 0;
         public sbyte BDirection { get; set; }
-        public byte? BQuantity { get; set; }
-        public bool BHasNOTEDDATE { get; set; }
-        public bool BIsBankAcc { get; set; }
+        public byte? BQuantity { get; set; } = 0;
+        public bool BHasNOTEDDATE { get; set; } = false;
+        public bool BIsBankAcc { get; set; } = false;
     }
 }

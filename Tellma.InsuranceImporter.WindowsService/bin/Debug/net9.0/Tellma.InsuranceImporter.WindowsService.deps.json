@@ -612,7 +612,8 @@
           "Microsoft.Extensions.Logging.Abstractions": "9.0.8",
           "Tellma.Client": "0.1.10",
           "Tellma.InsuranceImporter.Contract": "1.0.0",
-          "Tellma.InsuranceImporter.Repository": "1.0.0"
+          "Tellma.InsuranceImporter.Repository": "1.0.0",
+          "Tellma.Utilities.EmailLogger": "1.0.0"
         },
         "runtime": {
           "Tellma.InsuranceImporter.dll": {

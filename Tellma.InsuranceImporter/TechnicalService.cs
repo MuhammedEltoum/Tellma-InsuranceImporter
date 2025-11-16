@@ -4,6 +4,7 @@ using Tellma.InsuranceImporter.Contract;
 using Tellma.InsuranceImporter.Enums;
 using Tellma.InsuranceImporter.Repository;
 using Tellma.Model.Application;
+using Tellma.Utilities.EmailLogger;
 
 namespace Tellma.InsuranceImporter
 {
@@ -20,41 +21,27 @@ namespace Tellma.InsuranceImporter
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public async Task Import(CancellationToken cancellationToken)
+        public async Task Import(string tenantCode, CancellationToken cancellationToken)
         {
             var allWorksheets = (await _repository.GetWorksheets(cancellationToken)).ToList();
 
             var validWorksheets = ValidateWorksheets(allWorksheets);
 
-            if (!validWorksheets.Any())
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var tenantWorks = validWorksheets.Where(t => t.TenantCode == tenantCode).ToList();
+
+            try
             {
-                _logger.LogWarning("No valid worksheets found to import.");
-                return;
+                await ProcessTenant(tenantCode, tenantWorks, cancellationToken);
             }
-
-            var tenantCodes = validWorksheets.Select(t => t.TenantCode).Distinct().ToList();
-
-            foreach (var tenantCode in tenantCodes)
+            catch (OperationCanceledException)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                //only process IR1 tenant for now
-                if (tenantCode != "IR160") continue;
-
-                var tenantWorks = validWorksheets.Where(t => t.TenantCode == tenantCode).ToList();
-
-                try
-                {
-                    await ProcessTenant(tenantCode, tenantWorks, cancellationToken);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "An error occurred while processing tenant {TenantCode}", tenantCode);
-                }
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while processing tenant {TenantCode}", tenantCode);
             }
         }
 
@@ -65,6 +52,8 @@ namespace Tellma.InsuranceImporter
                 _logger.LogWarning("No worksheets for tenant {TenantCode}", tenantCode);
                 return;
             }
+
+            var mappingAccountsTask = _repository.GetMappingAccounts(cancellationToken);
 
             var tenantId = InsuranceHelper.GetTenantId(tenantCode);
 
@@ -100,6 +89,8 @@ namespace Tellma.InsuranceImporter
                 insuranceAgents.AddRange(synced);
             }
 
+            int insuranceAgentsCount = insuranceAgents.Count;
+
             // Broker
             await SyncAgentGroup(tenantWorks,
                 insList: insuranceAgents,
@@ -107,6 +98,8 @@ namespace Tellma.InsuranceImporter
                 tenantId: tenantId,
                 definitionCode: TellmaEntityCode.InsuranceAgent.AsString(),
                 cancellationToken: cancellationToken);
+
+            insuranceAgentsCount = CheckInsuranceAgentsCount(insuranceAgentsCount, insuranceAgents.Count, "brokers");
 
             // Channel
             await SyncAgentGroup(tenantWorks,
@@ -117,6 +110,8 @@ namespace Tellma.InsuranceImporter
                 definitionCode: TellmaEntityCode.InsuranceAgent.AsString(),
                 cancellationToken: cancellationToken);
 
+            insuranceAgentsCount = CheckInsuranceAgentsCount(insuranceAgentsCount, insuranceAgents.Count, "channel");
+
             // Cedant
             await SyncAgentGroup(tenantWorks,
                 insList: insuranceAgents,
@@ -125,6 +120,8 @@ namespace Tellma.InsuranceImporter
                 tenantId: tenantId,
                 definitionCode: TellmaEntityCode.InsuranceAgent.AsString(),
                 cancellationToken: cancellationToken);
+
+            insuranceAgentsCount = CheckInsuranceAgentsCount(insuranceAgentsCount, insuranceAgents.Count, "cedant");
 
             // Reinsurer
             await SyncAgentGroup(tenantWorks,
@@ -135,6 +132,8 @@ namespace Tellma.InsuranceImporter
                 definitionCode: TellmaEntityCode.InsuranceAgent.AsString(),
                 cancellationToken: cancellationToken);
             
+            insuranceAgentsCount = CheckInsuranceAgentsCount(insuranceAgentsCount, insuranceAgents.Count, "reinsurer");
+
             // Insured
             await SyncAgentGroup(tenantWorks,
                 insList: insuranceAgents,
@@ -144,15 +143,8 @@ namespace Tellma.InsuranceImporter
                 definitionCode: TellmaEntityCode.InsuranceAgent.AsString(),
                 cancellationToken: cancellationToken);
 
-            // Accounts batch
-            var accountCodes = tenantWorks.SelectMany(w => new[] { w.AAccount, w.BAccount })
-                .Where(s => !string.IsNullOrWhiteSpace(s))
-                .Distinct()
-                .ToList();
+            insuranceAgentsCount = CheckInsuranceAgentsCount(insuranceAgentsCount, insuranceAgents.Count, "insured");
 
-            string? accountsFilter = accountCodes.Any() ? string.Join(" OR ", accountCodes.Select(a => $"Code = '{a}'")) : null;
-            var accountsObjectResult = await _service.GetClientEntities(tenantId, TellmaClientProperty.Accounts.AsString(), filter: accountsFilter, token: cancellationToken);
-            var accountsResult = accountsObjectResult.ConvertAll(a => (Account)a);
 
             // Business types
             var businessTypesCodes = tenantWorks.Select(w => w.BusinessTypeCode).Distinct().Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
@@ -195,19 +187,11 @@ namespace Tellma.InsuranceImporter
             var riskCountriesObjects = await _service.GetClientEntities(tenantId, TellmaClientProperty.Lookups.AsString(), riskCountryDefinitionId, riskCountriesFilter, token: cancellationToken);
             var riskCountriesResult = riskCountriesObjects.ConvertAll(rc => (Lookup)rc);
 
-            // Entry types
-            var entryTypeConcepts = tenantWorks.SelectMany(w => new[] { w.APurposeConcept, w.BPurposeConcept })
-                .Where(s => !string.IsNullOrWhiteSpace(s))
-                .Distinct()
-                .ToList();
-            string? entryTypesFilter = entryTypeConcepts.Any() ? string.Join(" OR ", entryTypeConcepts.Select(et => $"Concept='{et}'")) : null;
-            var entryTypesObjects = await _service.GetClientEntities(tenantId, TellmaClientProperty.EntryTypes.AsString(), filter: entryTypesFilter, token: cancellationToken);
-            var entryTypesResult = entryTypesObjects.ConvertAll(et => (EntryType)et);
 
             // Contracts
             var groupedContracts = tenantWorks
                 .GroupBy(c => c.ContractCode)
-                .Select(g => g.OrderByDescending(c => c.ExpiryDate).First())
+                .Select(g => g.OrderByDescending(c => c.PostingDate).First())
                 .Select(c => new Agent
                 {
                     Code = c.ContractCode,
@@ -215,7 +199,7 @@ namespace Tellma.InsuranceImporter
                     Name2 = $"{c.ContractCode}: {c.ContractName}",
                     Lookup1Id = businessTypesResult.FirstOrDefault(bt => bt.Code == c.BusinessTypeCode)?.Id,
                     Lookup3Id = riskCountriesResult.FirstOrDefault(rc => rc.Code == c.RiskCountry)?.Id,
-                    FromDate = c.EffectiveDate,
+                    FromDate = tenantWorks.Where(ws => ws.ContractCode == c.ContractCode).Min(ws => ws.EffectiveDate),
                     ToDate = c.ExpiryDate,
                     Agent2Id = insuranceAgents.FirstOrDefault(ia => ia.Code == c.BrokerCode)?.Id,
                     Description2 = $"Max closing date = {c.ClosingDate:yyyy-MM-dd}",
@@ -231,99 +215,37 @@ namespace Tellma.InsuranceImporter
             var partnershipTypesResult = partnershipTypeObjects.ConvertAll(l => (Lookup)l);
 
             // Business partners
-            var globalReAgent = insuranceAgents.FirstOrDefault(ia => ia.Code == tenantCode);
-            if (globalReAgent == null)
-            {
-                string filter = $"Code='{tenantCode}'";
-                var tenantAgent = await _service.GetClientEntities(tenantId, TellmaClientProperty.Agents.AsString(), insuranceAgentDefinitionId, filter, token: cancellationToken);
-                globalReAgent = tenantAgent.ConvertAll(a => (Agent)a).FirstOrDefault();
-            }
+            var cedantContracts = BuildPartnerList(
+                tenantWorks,
+                insuranceAgents,
+                contractsResult,
+                partnershipTypesResult,
+                c => c.CedantCode,
+                "Cedant");
 
-            int? globalReId = globalReAgent?.Id;
-            string globalReName = globalReAgent?.Name ?? string.Empty;
+            var channelContracts = BuildPartnerList(
+                tenantWorks,
+                insuranceAgents,
+                contractsResult,
+                partnershipTypesResult,
+                c => c.ChannelCode,
+                "BrokerCh");
 
-            var cedantContracts = tenantWorks
-                .Where(c => !string.IsNullOrWhiteSpace(c.CedantCode))
-                .Select(c => new
-                {
-                    Code = "-",
-                    Name = insuranceAgents.FirstOrDefault(ia => ia.Code == c.CedantCode)?.Name,
-                    Agent1Id = contractsResult.FirstOrDefault(ct => ct.Code == c.ContractCode)?.Id,
-                    Agent2Id = insuranceAgents.FirstOrDefault(ia => ia.Code == c.CedantCode)?.Id,
-                    Lookup2Id = partnershipTypesResult.FirstOrDefault(p => p.Code == "Cedant")?.Id
-                })
-                .Distinct()
-                .Select(c => new Agent
-                {
-                    Code = c.Code,
-                    Name = c.Name,
-                    Agent1Id = c.Agent1Id,
-                    Agent2Id = c.Agent2Id,
-                    Lookup1Id = c.Lookup2Id
-                })
-                .ToList();
+            var insuredContracts = BuildPartnerList(
+                tenantWorks,
+                insuranceAgents,
+                contractsResult,
+                partnershipTypesResult,
+                c => c.InsuredCode,
+                "Insured");
 
-            var channelContracts = tenantWorks
-                .Where(c => !string.IsNullOrWhiteSpace(c.ChannelCode))
-                .Select(c => new
-                {
-                    Code = "-",
-                    Name = insuranceAgents.FirstOrDefault(ia => ia.Code == c.ChannelCode)?.Name,
-                    Agent1Id = contractsResult.FirstOrDefault(ct => ct.Code == c.ContractCode)?.Id,
-                    Agent2Id = insuranceAgents.FirstOrDefault(ia => ia.Code == c.ChannelCode)?.Id,
-                    Lookup1Id = partnershipTypesResult.FirstOrDefault(p => p.Code == "BrokerCh")?.Id
-                })
-                .Distinct()
-                .Select(c => new Agent
-                {
-                    Code = c.Code,
-                    Name = c.Name,
-                    Agent1Id = c.Agent1Id,
-                    Agent2Id = c.Agent2Id,
-                    Lookup1Id = c.Lookup1Id
-                })
-                .ToList();
-
-            var insuredContracts = tenantWorks
-                .Where(c => !string.IsNullOrWhiteSpace(c.ReinsurerCode))
-                .Select(c => new
-                {
-                    Code = "-",
-                    Name = insuranceAgents.FirstOrDefault(ia => ia.Code == c.InsuredCode)?.Name,
-                    Agent1Id = contractsResult.FirstOrDefault(ct => ct.Code == c.ContractCode)?.Id,
-                    Agent2Id = insuranceAgents.FirstOrDefault(ia => ia.Code == c.InsuredCode)?.Id,
-                    Lookup1Id = partnershipTypesResult.FirstOrDefault(p => p.Code == "Insured")?.Id
-                })
-                .Distinct()
-                .Select(c => new Agent
-                {
-                    Code = c.Code,
-                    Name = c.Name,
-                    Agent1Id = c.Agent1Id,
-                    Agent2Id = c.Agent2Id,
-                    Lookup1Id = c.Lookup1Id
-                })
-                .ToList();
-
-            var reinsurerContracts = tenantWorks
-                .Select(c => new
-                {
-                    Code = "-",
-                    Name = insuranceAgents.FirstOrDefault(ia => ia.Code == c.ReinsurerCode)?.Name,
-                    Agent1Id = contractsResult.FirstOrDefault(ct => ct.Code == c.ContractCode)?.Id,
-                    Agent2Id = insuranceAgents.FirstOrDefault(ia => ia.Code == c.ReinsurerCode)?.Id,
-                    Lookup1Id = partnershipTypesResult.FirstOrDefault(p => p.Code == "Reinsurer")?.Id
-                })
-                .Distinct()
-                .Select(c => new Agent
-                {
-                    Code = c.Code,
-                    Name = c.Name,
-                    Agent1Id = c.Agent1Id,
-                    Agent2Id = c.Agent2Id,
-                    Lookup1Id = c.Lookup1Id
-                })
-                .ToList();
+            var reinsurerContracts = BuildPartnerList(
+                tenantWorks,
+                insuranceAgents,
+                contractsResult,
+                partnershipTypesResult,
+                c => c.ReinsurerCode,
+                "Reinsurer");
 
             var businessPartners = new List<Agent>();
             businessPartners.AddRange(cedantContracts);
@@ -336,7 +258,11 @@ namespace Tellma.InsuranceImporter
                 .OrderBy(bp => bp.Agent1Id)
                 .ToList();
 
-            var businessPartnersResult = await _service.SyncAgents(tenantId, TellmaEntityCode.BusinessPartner.AsString(), businessPartners, cancellationToken);
+            var businessPartnersResult = await _service.SyncAgents(
+                    tenantId,
+                    TellmaEntityCode.BusinessPartner.AsString(),
+                    businessPartners,
+                    cancellationToken);
 
             // Customer accounts
             var dbCustomerAccounts = tenantWorks
@@ -347,14 +273,14 @@ namespace Tellma.InsuranceImporter
                         .Where(tw => tw.ContractCode == cstmr.ContractCode
                             && tw.BusinessMainClassCode == cstmr.BusinessMainClassCode
                             && tw.AgentCode == cstmr.AgentCode)
-                        .OrderByDescending(w => w.ExpiryDate)
+                        .OrderByDescending(w => w.PostingDate)
                         .FirstOrDefault()?
                         .ContractName,
                     Name2 = $"{cstmr.ContractCode}-{cstmr.BusinessMainClassCode}-{cstmr.AgentCode}: " + tenantWorks
                         .Where(tw => tw.ContractCode == cstmr.ContractCode
                             && tw.BusinessMainClassCode == cstmr.BusinessMainClassCode
                             && tw.AgentCode == cstmr.AgentCode)
-                        .OrderByDescending(w => w.ExpiryDate)
+                        .OrderByDescending(w => w.PostingDate)
                         .FirstOrDefault()?
                         .ContractName,
                     Agent1Id = insuranceAgents.FirstOrDefault(ia => ia.Code == cstmr.AgentCode)?.Id,
@@ -375,15 +301,50 @@ namespace Tellma.InsuranceImporter
 
             var customerAccResult = await _service.SyncAgents(tenantId, TellmaEntityCode.TradeReceivableAccount.AsString(), dbCustomerAccounts, cancellationToken);
 
+
+            var mappingAccounts = await mappingAccountsTask;
+
+            // Keep only worksheets with supported SICS Accounts
+            var supportedSICSAcc = mappingAccounts.Select(ma => $"{ma.AccountCode}-{ma.IsInward}").Distinct().ToList();
+            var invalidTypeIds = tenantWorks.Where(t => !supportedSICSAcc.Any(p => $"{t.AccountCode}-{t.IsInward}" == $"{p}")).Select(t => t.WorksheetId).Distinct().ToList();
+            if (invalidTypeIds.Any())
+            {
+                tenantWorks = tenantWorks.Where(t => supportedSICSAcc.Any(p => $"{t.AccountCode}-{t.IsInward}" == $"{p}")).ToList();
+                _logger.LogError("Validation Error: ({Count}) WorksheetId [{Ids}] have an invalid SICS account.", invalidTypeIds.Count, string.Join(", ", invalidTypeIds));
+            }
+
+            tenantWorks = MapTechnicalAccounts(tenantWorks, mappingAccounts);
+
+            tenantWorks = ValidateWorksheets(tenantWorks);
+
             if (!tenantWorks.Any())
             {
                 _logger.LogWarning("No new technical records to sync for tenant {Tenant}", tenantCode);
                 return;
             }
 
+            // Accounts batch
+            var accountCodes = tenantWorks.SelectMany(w => new[] { w.AAccount, w.BAccount })
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Distinct()
+                .ToList();
+            string? accountsFilter = accountCodes.Any() ? string.Join(" OR ", accountCodes.Select(a => $"Code = '{a}'")) : null;
+            var accountsObjectResult = await _service.GetClientEntities(tenantId, TellmaClientProperty.Accounts.AsString(), filter: accountsFilter, token: cancellationToken);
+            var accountsResult = accountsObjectResult.ConvertAll(a => (Account)a);
+
+            // Entry types
+            var entryTypeConcepts = tenantWorks.SelectMany(w => new[] { w.APurposeConcept, w.BPurposeConcept })
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Distinct()
+                .ToList();
+            string? entryTypesFilter = entryTypeConcepts.Any() ? string.Join(" OR ", entryTypeConcepts.Select(et => $"Concept='{et}'")) : null;
+            var entryTypesObjects = await _service.GetClientEntities(tenantId, TellmaClientProperty.EntryTypes.AsString(), filter: entryTypesFilter, token: cancellationToken);
+            var entryTypesResult = entryTypesObjects.ConvertAll(et => (EntryType)et);
+
             // Document definitions and other ids
             int techDocDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.DocumentDefinitions.AsString(), TellmaEntityCode.TechnicalWorksheet.AsString(), token: cancellationToken);
             int claimDocDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.DocumentDefinitions.AsString(), TellmaEntityCode.ClaimWorksheet.AsString(), token: cancellationToken);
+
             int lineDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.LineDefinitions.AsString(), TellmaEntityCode.ManualLine.AsString(), token: cancellationToken);
 
             int taxDepartmentDefinitionId = await _service.GetIdByCodeAsync(tenantId, 
@@ -541,13 +502,52 @@ namespace Tellma.InsuranceImporter
                     await _repository.UpdateImportedWorksheets(tenantCode, claimRecords, cancellationToken);
                     _logger.LogInformation("Claims import finished for tenant {Tenant}", tenantCode);
                 }
+
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An error occured while importing technicals for tenant {Tenant}", tenantCode);
+                throw;
             }
         }
 
+        private int CheckInsuranceAgentsCount(int insuranceAgentsCount, int updatedInsuranceAgentsCount, string agentCode)
+        {
+            if (insuranceAgentsCount == updatedInsuranceAgentsCount)
+            {
+                _logger.LogWarning("No new {agentCode} to sync", agentCode);
+            }
+            else
+            {
+                insuranceAgentsCount = updatedInsuranceAgentsCount;
+            }
+
+            return insuranceAgentsCount;
+        }
+
+        private List<Technical> MapTechnicalAccounts(List<Technical> tenantWorks, List<Technical> mappingAccounts)
+        {
+            foreach (var tw in tenantWorks)
+            {
+                var mapping = mappingAccounts.FirstOrDefault(ma => ma.AccountCode == tw.AccountCode && ma.IsInward == tw.IsInward);
+
+                if (mapping == null)
+                    _logger.LogWarning("WorksheetId {WorksheetId} has SICS account {acc} for is_insward = {isInward} technical which is not defined in mapping table.", tw.WorksheetId, tw.AccountCode, tw.IsInward);
+
+                if (mapping != null)
+                {
+                    tw.AAccount = mapping.AAccount;
+                    tw.BAccount = mapping.BAccount;
+                    tw.APurposeConcept = mapping.APurposeConcept;
+                    tw.BPurposeConcept = mapping.BPurposeConcept;
+                    tw.ATaxAccount = mapping.ATaxAccount;
+                    tw.BTaxAccount = mapping.BTaxAccount;
+                    tw.AHasNotedDate = mapping.AHasNotedDate;
+                    tw.BHasNotedDate = mapping.BHasNotedDate;
+                }
+            }
+            return tenantWorks;
+        }
         private List<Technical> ValidateWorksheets(List<Technical> worksheets)
         {
             var valid = worksheets.ToList();
@@ -619,6 +619,37 @@ namespace Tellma.InsuranceImporter
 
             var synced = await _service.SyncAgents(tenantId, definitionCode, agents, cancellationToken);
             insList.AddRange(synced);
+        }
+
+        private List<Agent> BuildPartnerList(
+            IEnumerable<Technical> tenantWorks,
+            IEnumerable<Agent> insuranceAgents,
+            IEnumerable<Agent> contractsResult,
+            IEnumerable<Lookup> partnershipTypesResult,
+            Func<Technical, string> codeSelector,
+            string lookupCode)
+        {
+            var lookupId = partnershipTypesResult
+                .FirstOrDefault(p => p.Code == lookupCode)?.Id;
+
+            return tenantWorks
+                .Where(c => !string.IsNullOrWhiteSpace(codeSelector(c)))
+                .GroupBy(tw => tw.ContractCode)
+                .Select(g => g.OrderByDescending(c => c.PostingDate).First())
+                .Select(c =>
+                {
+                    var code = codeSelector(c);
+
+                    return new Agent
+                    {
+                        Code = "-",
+                        Name = insuranceAgents.FirstOrDefault(ia => ia.Code == code)?.Name,
+                        Agent1Id = contractsResult.FirstOrDefault(ct => ct.Code == c.ContractCode)?.Id,
+                        Agent2Id = insuranceAgents.FirstOrDefault(ia => ia.Code == code)?.Id,
+                        Lookup1Id = lookupId,
+                    };
+                })
+                .ToList();
         }
     }
 }

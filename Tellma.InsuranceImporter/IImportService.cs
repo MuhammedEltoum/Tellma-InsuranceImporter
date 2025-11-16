@@ -8,6 +8,6 @@ namespace Tellma.InsuranceImporter
 {
     public  interface IImportService<T> where T : class
     {
-        Task Import(CancellationToken cancellationToken);
+        Task Import(string tenantCode, CancellationToken cancellationToken);
     }
 }

@@ -2,6 +2,7 @@ using Tellma.InsuranceImporter;
 using Tellma.InsuranceImporter.Contract;
 using Tellma.InsuranceImporter.Repository;
 using Tellma.InsuranceImporter.WindowsService;
+using Tellma.Utilities.EmailLogger;
 
 IHost host = Host.CreateDefaultBuilder(args)
     .UseWindowsService(config =>
@@ -14,6 +15,8 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.Configure<ImporterOptions>(hostContext.Configuration);
         services.Configure<InsuranceDBOptions>(hostContext.Configuration.GetSection("InsuranceDB"));
         services.Configure<TellmaOptions>(hostContext.Configuration.GetSection("Tellma"));
+        services.Configure<EmailOptions>(hostContext.Configuration.GetSection("Email"));
+        services.AddSingleton<EmailLogger>();
         services.AddScoped<IExchangeRatesRepository, ExchangeRatesRepository>();
         services.AddScoped<IWorksheetRepository<Remittance>, RemittanceRepository>();
         services.AddScoped<IWorksheetRepository<Technical>, TechnicalRepository>();
