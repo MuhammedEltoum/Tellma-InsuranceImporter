@@ -16,8 +16,7 @@ namespace Tellma.InsuranceImporter
     {
         private readonly TellmaClient _client;
         private readonly ILogger<TellmaService> _logger;
-        private readonly EmailLogger _emailLogger;
-        public TellmaService(ILogger<TellmaService> logger, EmailLogger emailLogger, IOptions<TellmaOptions> options)
+        public TellmaService(ILogger<TellmaService> logger, IOptions<TellmaOptions> options)
         {
             _client = new TellmaClient(
                 baseUrl: "https://web.tellma.com",
@@ -27,7 +26,6 @@ namespace Tellma.InsuranceImporter
                 );
 
             _logger = logger;
-            _emailLogger = emailLogger;
         }
 
         public async Task SaveExchangeRates(int tenantId, List<ExchangeRateForSave> exchangeRates, CancellationToken cancellationToken)

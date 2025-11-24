@@ -21,7 +21,7 @@ namespace Tellma.InsuranceImporter
             EmailLogger emailLogger,
             IOptions<TellmaOptions> options)
         {
-            _service = new TellmaService(logger, emailLogger, options);
+            _service = new TellmaService(logger, options);
             _repository = repository;
             _logger = logger;
         }
