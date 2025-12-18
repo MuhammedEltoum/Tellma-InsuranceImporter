@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Options;
 using System;
+using System.Data;
 using System.Security.Principal;
 using Tellma.InsuranceImporter.Contract;
 using static System.Net.Mime.MediaTypeNames;
@@ -23,7 +24,8 @@ namespace Tellma.InsuranceImporter.Repository
                                   "[B Account], " +
                                   "[B TAX Account], " +
                                   "[B Purpose - Concept], " +
-                                  "[B Has NOTED_DATE] " +
+                                  "[B Has NOTED_DATE]," +
+                                  "[CanBePairing] " +
                               "FROM [dbo].[Tellma_Mapping_Technical];";
 
             using (var reader = await ExecuteReaderAsync(selectQuery))
@@ -41,14 +43,15 @@ namespace Tellma.InsuranceImporter.Repository
                         BAccount = !reader.IsDBNull(6) ? reader.GetString(6) : null,
                         BTaxAccount = !reader.IsDBNull(7) ? reader.GetBoolean(7) : false,
                         BPurposeConcept = !reader.IsDBNull(8) ? reader.GetString(8) : null,
-                        BHasNotedDate = !reader.IsDBNull(9) ? reader.GetBoolean(9) : false
+                        BHasNotedDate = !reader.IsDBNull(9) ? reader.GetBoolean(9) : false,
+                        IsPairingAccount = !reader.IsDBNull(10) ? reader.GetBoolean(10) : false
                     });
                 }
             }
             return technicalsList;
         }
 
-        public async Task<List<Technical>> GetWorksheets(CancellationToken token)
+        public async Task<List<Technical>> GetWorksheets(bool includeImported, string filter, CancellationToken token)
         {
             List<Technical> technicalsList = new List<Technical>();
             string selectQuery = "SELECT [PK], " +
@@ -86,9 +89,12 @@ namespace Tellma.InsuranceImporter.Repository
                                   "[TENANT_NAME], " +
                                   "[TELLMA_DOCUMENT_ID], " +
                                   "[ACCOUNT_CODE], " +
-                                  "[Technical_Notes]" +
-                              "FROM [dbo].[Technicals]" +
-                              "WHERE [TRANSFER_TO_TELLMA] = N'N' AND [IMPORT_DATE] IS NULL AND VALUE_FC2 <> 0;";
+                                  "[Technical_Notes], " +
+                                  "[BAL_OBJECT_ID], " +
+                                  "[D_OBJECT_ID], " +
+                                  "[TRANSFER_TO_TELLMA] " +
+                              "FROM [dbo].[Technicals] " +
+                              "WHERE 1=1 " + filter + " " + (includeImported ? " " : " AND [TRANSFER_TO_TELLMA] = N'N' ");
             using (var reader = await ExecuteReaderAsync(selectQuery))
             {
                 while (await reader.ReadAsync())
@@ -130,7 +136,10 @@ namespace Tellma.InsuranceImporter.Repository
                         TenantName = reader.GetString(32),
                         TellmaDocumentId = !reader.IsDBNull(33) ? reader.GetInt32(33) : 0,
                         AccountCode = reader.GetString(34),
-                        TechnicalNotes = !reader.IsDBNull(35) ? reader.GetString(35) : null
+                        TechnicalNotes = !reader.IsDBNull(35) ? reader.GetString(35) : null,
+                        BalObjectId = !reader.IsDBNull(36) ? reader.GetString(36) : null,
+                        DObjectId = !reader.IsDBNull(37) ? reader.GetString(37) : null,
+                        TransferToTellma = !reader.IsDBNull(38) ? reader.GetString(38) : "N"
                     });
                 }
             }

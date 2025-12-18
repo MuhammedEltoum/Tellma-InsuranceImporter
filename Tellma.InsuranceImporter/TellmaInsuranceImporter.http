@@ -1,0 +1,7 @@
+@ExchangeRates.HostAddress = https://api.exchangerate.host
+@ExchangeRates.ApiKey = a4473ddfd2daf5c0d8f281b079633375
+
+GET {{ExchangeRates.HostAddress}}/live?access_key={{ExchangeRates.ApiKey}}
+Accept: application/json
+
+###

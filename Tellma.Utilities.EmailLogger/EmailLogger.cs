@@ -186,7 +186,7 @@ namespace Tellma.Utilities.EmailLogger
         <p><strong>Total Entries:</strong> {_logEntries.Count}</p>
     </div>");
 
-            foreach (var entry in _logEntries)
+            foreach (var entry in CleanLogEntries(_logEntries))
             {
                 var levelClass = entry.Level switch
                 {
@@ -243,5 +243,20 @@ namespace Tellma.Utilities.EmailLogger
                 return truncated;
             }
         }
+
+        private List<LogEntry> CleanLogEntries(List<LogEntry> logEntries)
+        {
+            string[] excludePrefix = new string[]
+            {
+                "Application started. Press Ctrl+C to shut down.",
+                "Hosting environment:",
+                "Content root path: "
+            };
+
+            return logEntries
+                .Where(le => !excludePrefix.Any(prefix => le.Message.StartsWith(prefix)))
+                .ToList();
+        }
+
     }
 }

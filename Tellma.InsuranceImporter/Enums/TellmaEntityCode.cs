@@ -20,6 +20,7 @@ namespace Tellma.InsuranceImporter.Enums
         PartnershipTypes,
         BusinessPartner,
         TaxDepartment,
-        ValueAddedTax
+        ValueAddedTax,
+        PairingWorksheet
     }
 }

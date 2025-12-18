@@ -42,6 +42,7 @@ namespace Tellma.InsuranceImporter.Contract
         public string TenantCode {get; set;}
         public string TenantName {get; set;}
         public Int32 TellmaDocumentId { get; set; } = 0;
+        public string TransferToTellma {get; set;}
         public string AccountCode {get; set;}
         public DateTime ImportDate {get; set;}
         public string TechnicalNotes {get; set;}
@@ -55,5 +56,8 @@ namespace Tellma.InsuranceImporter.Contract
         public bool BTaxAccount {get; set;}
         public string BPurposeConcept {get; set;}
         public bool BHasNotedDate {get; set;}
+        public string? BalObjectId { get; set; } = String.Empty;
+        public string? DObjectId { get; set; } = String.Empty;
+        public bool IsPairingAccount { get; set; } = false;
     }
 }

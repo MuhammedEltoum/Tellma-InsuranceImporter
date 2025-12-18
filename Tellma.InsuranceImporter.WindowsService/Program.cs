@@ -16,6 +16,7 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.Configure<InsuranceDBOptions>(hostContext.Configuration.GetSection("InsuranceDB"));
         services.Configure<TellmaOptions>(hostContext.Configuration.GetSection("Tellma"));
         services.Configure<EmailOptions>(hostContext.Configuration.GetSection("Email"));
+        services.Configure<InsuranceOptions>(hostContext.Configuration.GetSection("Insurance"));
         services.AddSingleton<EmailLogger>();
         services.AddScoped<IExchangeRatesRepository, ExchangeRatesRepository>();
         services.AddScoped<IWorksheetRepository<Remittance>, RemittanceRepository>();
@@ -25,6 +26,7 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddScoped<IImportService<ExchangeRate>, ExchangeRatesService>();
         services.AddScoped<IImportService<Remittance>, RemittanceService>();
         services.AddScoped<IImportService<Technical>, TechnicalService>();
+        services.AddScoped<IImportService<Pairing>, PairingService>();
         services.AddScoped<TellmaInsuranceImporter>();
     })
     .ConfigureLogging((hostContext, loggingBuilder) =>

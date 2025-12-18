@@ -6,7 +6,8 @@
         public string? WorksheetId { get; set; }
         public DateTime PostingDate { get; set; }
         public bool IsPosted { get; set; }
-        public int DocumentId { get; set; } = 0;
+        public int TellmaDocumentId { get; set; } = 0;
+        public string TransferToTellma { get; set; }
         public string? Reference { get; set; } = "-";
         public string? AgentCode { get; set; } = String.Empty;
         public string? AgentName { get; set; }
@@ -23,6 +24,7 @@
         public String RemittanceType { get; set; } = String.Empty;
         public String RemittanceTypeName { get; set; } = String.Empty;
         public String? RemittanceNotes { get; set; }
+        public string BalObjectId {  get; set; } = String.Empty;
         public string? AAccount { get; set; }
         public int? ANotedAgentId { get; set; } = 0;
         public int? AResourceId { get; set; } = 0;

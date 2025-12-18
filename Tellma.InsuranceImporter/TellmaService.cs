@@ -1,14 +1,10 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Data;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
-using System.Threading;
 using Tellma.Api.Dto;
 using Tellma.Client;
 using Tellma.InsuranceImporter.Enums;
 using Tellma.Model.Application;
-using Tellma.Utilities.EmailLogger;
 
 namespace Tellma.InsuranceImporter
 {
@@ -41,6 +37,7 @@ namespace Tellma.InsuranceImporter
             catch (Exception ex)
             {
                 LogTellmaError(ex);
+                throw;
             }
         }
         // Generic helper for ID by code using reflection for GetEntities and Id
@@ -196,9 +193,9 @@ namespace Tellma.InsuranceImporter
                 }
             }
 
-            if (dbAgentsCopy.Count == 0)
+            if (dbAgentsCopy.Count == 0 && definitionCode != "InsuranceAgent")
             {
-                _logger.LogInformation($"{definitionCode}/{agentDefinitionId} has no new agents!");
+                _logger.LogDebug($"{definitionCode}/{agentDefinitionId} has no new agents!");
                 return agentsResult;
 
             }
@@ -206,25 +203,6 @@ namespace Tellma.InsuranceImporter
             //Update tellma agents with updated agents from DB or create new agents from DB.
             var agentsToCreate = new List<AgentForSave>();
             var agentsToUpdate = new List<AgentForSave>();
-
-            // CONDITION FOR INSURANCE AGENTS: Check for duplicate names
-            if (definitionCode == "InsuranceAgent")
-            {
-                // Group agents by name to find duplicates
-                var nameGroups = dbAgentsCopy.GroupBy(a => a.Name.ToLower())
-                                            .Where(g => g.Count() > 1)
-                                            .ToList();
-
-                foreach (var group in nameGroups)
-                {
-                    foreach (var dbAgent in group)
-                    {
-                        // For duplicate names, concatenate code with name
-                        dbAgent.Name = $"{dbAgent.Name} - {dbAgent.Code}";
-                        dbAgent.Name2 = $"{dbAgent.Name2} - {dbAgent.Code}";
-                    }
-                }
-            }
 
             foreach (var dbAgent in dbAgentsCopy)
             {
@@ -246,7 +224,7 @@ namespace Tellma.InsuranceImporter
                 {
                     case "InsuranceAgent":
                         // For InsuranceAgent, use the potentially modified name (with concatenated code)
-                        agentName = dbAgent.Name;
+                        agentName = $"{dbAgent.Name} - {dbAgent.Code}";
                         break;
 
                     case "InsuranceContract":
@@ -257,11 +235,14 @@ namespace Tellma.InsuranceImporter
                         description = dbAgent.Description; // Description
                         description2 = dbAgent.Description2; // Final closing date
                         fromDate = dbAgent.FromDate;
+                        toDate = dbAgent.ToDate;
 
                         if (tellmaAgent != null)
+                        {
                             fromDate = (dbAgent.FromDate <= tellmaAgent.FromDate ? dbAgent.FromDate : tellmaAgent.FromDate) ?? dbAgent.FromDate;
+                            toDate = (dbAgent.ToDate >= tellmaAgent.ToDate ? dbAgent.ToDate : tellmaAgent.ToDate) ?? tellmaAgent.ToDate;
+                        }
 
-                        toDate = dbAgent.ToDate;
                         break;
 
                     case "TradeReceivableAccount":
@@ -327,7 +308,7 @@ namespace Tellma.InsuranceImporter
 
             if (agentsToCreate.Count == 0 && agentsToUpdate.Count == 0)
             {
-                _logger.LogInformation($"{definitionCode} Agent sync completed! No changes detected.");
+                _logger.LogDebug($"{definitionCode} Agent sync completed! No changes detected.");
                 return agentsResult;
             }
 
@@ -344,7 +325,18 @@ namespace Tellma.InsuranceImporter
             agentsToCreate.AddRange(agentsToUpdate);
 
             var createdAgents = await SaveAgents(tenantId, agentDefinitionId, agentsToCreate, cancellationToken);
-            _logger.LogInformation($"{definitionCode} Agent sync completed!");
+            _logger.LogDebug($"{definitionCode} Agent sync completed!");
+
+            // remove updated agents from the agentsResult to avoid duplicates
+            foreach (var updatedAgent in agentsToUpdate)
+            {
+                var agentToRemove = agentsResult.FirstOrDefault(a => a.Id == updatedAgent.Id);
+                if (agentToRemove != null)
+                {
+                    agentsResult = agentsResult.Where(a => a.Id != agentToRemove.Id).ToList();
+                }
+            }
+
             agentsResult.AddRange(createdAgents);
 
             return agentsResult;
@@ -361,7 +353,7 @@ namespace Tellma.InsuranceImporter
                     .Agents(agentDefinitionId)
                     .Save(agentForSave);
 
-                _logger.LogInformation($"Agents/{agentDefinitionId} updated!");
+                _logger.LogDebug($"Agents/{agentDefinitionId} updated!");
 
                 string? agentsFilter = string.Join(" or ", agentForSave.Select(a => $"Code = '{a.Code}'"));
                 agentsFilter = agentsFilter?.Length < 1024 ? agentsFilter : null;
@@ -416,26 +408,21 @@ namespace Tellma.InsuranceImporter
             catch (Exception ex)
             {
                 LogTellmaError(ex);
-                return createdAgents;
+                throw;
+                //return createdAgents;
             }
         }
 
         public async Task DeleteDocumentsByDefinitionId(int tenantId, int documentDefinitionId, CancellationToken token)
         {
-            int[] worksheetSerials = [3837, 3457, 1396, 4245, 2752, 3455, 1437, 2699, 1429, 2913, 3825, 3456, 1310, 1424, 1432, 1420, 5104, 5119, 5249, 5356, 5621, 5619, 5649, 5791, 5797, 6089, 6103, 6141, 6201, 6221, 6222, 6249, 1369];
-            int minSerial = worksheetSerials.Min();
-            int maxSerial = worksheetSerials.Max();
-
-            string serialFilter = $"SerialNumber >= {minSerial} AND SerialNumber <= {maxSerial}";
-
             var tellmaClient = _client.Application(tenantId);
             var documentResult = await tellmaClient
                 .Documents(documentDefinitionId)
                 .GetFact(new FactArguments
                 {
                     Select = "Id, State",
-                    Filter = $"CreatedBy.Id = 77 AND {serialFilter}",
-                    Top = 1000
+                    Filter = $"CreatedBy.Id = 77",
+                    Top = 10000
                 }, token);
 
             var documentsState = documentResult
@@ -474,12 +461,8 @@ namespace Tellma.InsuranceImporter
             }
             catch (Exception ex)
             {
-                _logger.LogWarning($"Bulk delete failed for tenant: {tenantId} Documents/{documentDefinitionId}, trying individual deletes.\n\n Error: {ex.Message}");
-
-                foreach (int id in allDocumentIds)
-                    await tellmaClient
-                        .Documents(documentDefinitionId)
-                        .DeleteById(id);
+                _logger.LogWarning($"Bulk delete failed for tenant: {tenantId} Documents/{documentDefinitionId}. \n\n Error: {ex.Message}");
+                throw;
             }
 
             _logger.LogInformation($"For tenant: {tenantId} All Documents/{documentDefinitionId} are deleted!");
@@ -508,65 +491,68 @@ namespace Tellma.InsuranceImporter
                 var minSerial = documents.Min(d => d.SerialNumber) ?? 0;
                 var maxSerial = documents.Max(d => d.SerialNumber) ?? 0;
                 string documentsFilter = $"State = 0 AND SerialNumber >= {minSerial} AND SerialNumber <= {maxSerial}";
-                documentsFilter = documentsFilter.Length < 1024 ? documentsFilter : null;
 
-                var createdDocsResult = await tellmaClient
-                    .Documents(documentDefinitionId)
-                    .GetEntities(new Request<GetArguments>
-                    {
-                        Arguments = new GetArguments
+                int documentsCount = documents.Count > 1000 ? 1000 : documents.Count;
+                int skip = 0;
+
+                while (true)
+                {
+                    var createdDocsFactResult = await tellmaClient
+                        .Documents(documentDefinitionId)
+                        .GetFact(new Request<FactArguments>
                         {
-                            Top = documents.Count,
-                            OrderBy = "Id desc",
-                            Filter = documentsFilter
-                        }
-                    }, cancellationToken);
-                newDocuments.AddRange(createdDocsResult.Data);
+                            Arguments = new FactArguments
+                            {
+                                Select = "Id, SerialNumber",
+                                Top = documentsCount,
+                                Skip = skip,
+                                OrderBy = "Id desc",
+                                Filter = documentsFilter
+                            }
+                        }, cancellationToken);
+
+                    newDocuments.AddRange(createdDocsFactResult.Data.Select(doc => new Document
+                    {
+                        Id = Convert.ToInt32(doc[0]),
+                        SerialNumber = Convert.ToInt32(doc[1])
+                    }));
+
+                    if (createdDocsFactResult.Data.Count < documentsCount)
+                        break;
+
+                    skip += documentsCount;
+                }
+
                 return newDocuments;
             }
             catch (Exception ex)
             {
                 LogTellmaError(ex);
-                return newDocuments;
+                throw;
             }
         }
 
         public async Task CloseDocuments(int tenantId, int documentDefinitionId, List<int> documentIds, CancellationToken cancellationToken)
         {
             var applicationClient = _client.Application(tenantId);
+
             try
             {
-                if (documentIds.Count < 200)
-                {
-                    await applicationClient
-                        .Documents(documentDefinitionId)
-                        .Close(documentIds);
-                }
-                else
-                {
-                    int chunkSize = 200;
-                    var chunkedDocumentIds = documentIds.Chunk(chunkSize);
-                    
-                    foreach (var chunk in chunkedDocumentIds)
-                    {
-                        await applicationClient
-                            .Documents(documentDefinitionId)
-                            .Close(chunk.ToList());
-                    }
-
-                }
-                    _logger.LogInformation("Documents closed!");
+                await applicationClient
+                    .Documents(documentDefinitionId)
+                    .Close(documentIds);
+               _logger.LogInformation("Documents closed!");
             }
             catch (Exception ex)
             {
                 LogTellmaError(ex);
+                throw;
             }
         }
 
         public void LogTellmaError(Exception ex)
         {
-            _logger.LogError(new Exception(ex.ToString()), "Tellma API Error");
-            throw ex;
+            _logger.LogError("Tellma API Error: \n {exception}", ex.ToString());
         }
 
         public async Task<int> GetAgentMaxSerialNumber(int tenantId, int agentDefinitionId, CancellationToken token)

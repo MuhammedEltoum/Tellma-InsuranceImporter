@@ -22,6 +22,7 @@ namespace Tellma.InsuranceImporter.Enums
                 TellmaEntityCode.BusinessType => "BusinessType",
                 TellmaEntityCode.ClaimWorksheet => "ClaimWorksheet",
                 TellmaEntityCode.TechnicalWorksheet => "TechnicalWorksheet",
+                TellmaEntityCode.PairingWorksheet => "PairingWorksheet",
                 TellmaEntityCode.InsuranceContract => "InsuranceContract",
                 TellmaEntityCode.PartnershipTypes => "PartnershipTypes",
                 TellmaEntityCode.BusinessPartner => "BusinessPartner",
