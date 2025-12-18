@@ -8,37 +8,45 @@ namespace Tellma.InsuranceImporter
 {
     public class TellmaInsuranceImporter
     {
+        private readonly IOptions<TellmaOptions> _options;
+        private readonly IOptionsMonitor<InsuranceOptions> _insuranceOptions;
         private readonly ILogger<TellmaInsuranceImporter> _logger;
         private readonly IImportService<Remittance> _remittanceService;
         private readonly IImportService<Technical> _technicalService;
+        private readonly IImportService<Pairing> _pairingService;
         private readonly IImportService<Contract.ExchangeRate> _exchangeRateService;
-        private readonly List<string> _tenantCodes;
         private readonly EmailLogger _emailLogger;
+        private readonly List<string> _tenantCodes;
 
-        public TellmaInsuranceImporter(ILogger<TellmaInsuranceImporter> logger,
+        public TellmaInsuranceImporter(
+            ILogger<TellmaInsuranceImporter> logger,
             EmailLogger emailLogger,
             IImportService<Remittance> remittanceService,
             IImportService<Technical> technicalService,
+            IImportService<Pairing> pairingService,
             IImportService<Contract.ExchangeRate> exchangeRateService,
-            IOptions<TellmaOptions> options)
+            IOptions<TellmaOptions> options,
+            IOptionsMonitor<InsuranceOptions> insuranceOptions)
         {
             _logger = logger;
             _emailLogger = emailLogger;
-            _exchangeRateService = exchangeRateService;
             _remittanceService = remittanceService;
             _technicalService = technicalService;
+            _pairingService = pairingService;
+            _exchangeRateService = exchangeRateService;
+            _options = options;
+            _insuranceOptions = insuranceOptions;
 
-            _tenantCodes = (options.Value.TenantCodes ?? "")
-                .Split(",")
-                .Select(s =>
-                {
-                    if (s.GetType() == typeof(string))
-                        return s;
-                    else if (string.IsNullOrWhiteSpace(s))
-                        throw new ArgumentException($"Error reading TenantCodes config value, the TenantCodes list is empty or the service account is unable to see the secrets file..");
-                    else
-                        throw new ArgumentException($"Error reading TenantCodes config value, {s} is not a valid string.");
-                })
+            // Simplified Parsing logic
+            var rawCodes = options.Value.TenantCodes;
+
+            if (string.IsNullOrWhiteSpace(rawCodes))
+            {
+                throw new ArgumentException("Error reading TenantCodes config value: The list is empty or secrets are missing.");
+            }
+
+            _tenantCodes = rawCodes
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .ToList();
         }
 
@@ -46,25 +54,47 @@ namespace Tellma.InsuranceImporter
         {
             foreach (var tenantCode in _tenantCodes)
             {
-                // Only process IR160 tenant for now
-                if (tenantCode != "IR160") continue;
+                try
+                {
+                    _logger.LogInformation("Starting full import process for tenant {TenantCode}", tenantCode);
 
-                var time = new Stopwatch();
-                time.Start();
-                _logger.LogInformation($"Starting remittance import for tenant {tenantCode}...at {DateTime.Now}");
-                await _remittanceService.Import(tenantCode, stoppingToken);
-                time.Stop();
-                _logger.LogInformation($"remittance took {time.ElapsedMilliseconds / 1000} seconds!");
+                    await RunImportStepAsync(_insuranceOptions.CurrentValue.EnableExchangeRate, _exchangeRateService, tenantCode, "Exchange Rates", stoppingToken);
+                    await RunImportStepAsync(_insuranceOptions.CurrentValue.EnableRemittance, _remittanceService, tenantCode, "Remittances", stoppingToken);
+                    await RunImportStepAsync(_insuranceOptions.CurrentValue.EnableTechnical, _technicalService, tenantCode, "Technical Data", stoppingToken);
+                    await RunImportStepAsync(_insuranceOptions.CurrentValue.EnablePairing, _pairingService, tenantCode, "Pairing", stoppingToken);
 
-                time.Restart();
-                _logger.LogInformation($"Starting technical import for tenant {tenantCode}...at {DateTime.Now}");
-                await _technicalService.Import(tenantCode, stoppingToken);
-                time.Stop();
-                _logger.LogInformation($"technical took {time.ElapsedMilliseconds / 1000} seconds!");
+                    _logger.LogInformation("Finished import for tenant {TenantCode}", tenantCode);
 
-                _logger.LogInformation($"Finished import for tenant {tenantCode} at {DateTime.Now}.");
-                _emailLogger.SendActivityReport("Tellma insurance importer report");
+                    _emailLogger.SendActivityReport($"Tellma insurance importer report for {tenantCode}");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Critical error importing data for tenant {TenantCode}. Terminating process.", tenantCode);
+                    throw;
+                }
             }
+        }
+
+        private async Task RunImportStepAsync<T>(
+            bool isEnabled,
+            IImportService<T> service,
+            string tenantCode,
+            string stepName,
+            CancellationToken token) where T : class
+        {
+            if (!isEnabled)
+            {
+                _logger.LogInformation("{StepName} import is disabled. Skipping for tenant {TenantCode}.", stepName, tenantCode);
+                return;
+            }
+            var stopwatch = Stopwatch.StartNew();
+
+            _logger.LogInformation("Starting {StepName} import for tenant {TenantCode}...", stepName, tenantCode);
+
+            await service.Import(tenantCode, token);
+
+            stopwatch.Stop();
+            _logger.LogInformation("{StepName} took {ElapsedSeconds} seconds.", stepName, stopwatch.Elapsed.TotalSeconds);
         }
     }
 }

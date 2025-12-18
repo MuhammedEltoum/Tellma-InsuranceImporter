@@ -1,10 +1,10 @@
 ﻿using Microsoft.Extensions.Logging;
-using System.Reflection.Metadata.Ecma335;
+using Microsoft.Extensions.Options;
+using System.Xml.Serialization;
 using Tellma.InsuranceImporter.Contract;
 using Tellma.InsuranceImporter.Enums;
 using Tellma.InsuranceImporter.Repository;
 using Tellma.Model.Application;
-using Tellma.Utilities.EmailLogger;
 
 namespace Tellma.InsuranceImporter
 {
@@ -13,35 +13,31 @@ namespace Tellma.InsuranceImporter
         private readonly ITellmaService _service;
         private readonly IWorksheetRepository<Technical> _repository;
         private readonly ILogger<TechnicalService> _logger;
+        private readonly IOptionsMonitor<InsuranceOptions> _options;
 
-        public TechnicalService(IWorksheetRepository<Technical> repository, ITellmaService service, ILogger<TechnicalService> logger)
+        public TechnicalService(IWorksheetRepository<Technical> repository, ITellmaService service, ILogger<TechnicalService> logger, IOptionsMonitor<InsuranceOptions> options)
         {
             _service = service ?? throw new ArgumentNullException(nameof(service));
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _options = options ?? throw new ArgumentNullException(nameof(options));
         }
 
         public async Task Import(string tenantCode, CancellationToken cancellationToken)
         {
-            var allWorksheets = (await _repository.GetWorksheets(cancellationToken)).ToList();
-
-            var validWorksheets = ValidateWorksheets(allWorksheets);
+            string filter = $" AND [TENANT_CODE] = '{tenantCode}'";
+            var allWorksheets = await _repository.GetWorksheets(false, filter, cancellationToken);
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            var tenantWorks = validWorksheets.Where(t => t.TenantCode == tenantCode).ToList();
-
             try
             {
-                await ProcessTenant(tenantCode, tenantWorks, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
+                await ProcessTenant(tenantCode, allWorksheets, cancellationToken);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while processing tenant {TenantCode}", tenantCode);
+                _logger.LogError("An error occurred while processing tenant {TenantCode}: {ErrorMessage}", tenantCode, ex.Message);
+                throw;
             }
         }
 
@@ -60,16 +56,28 @@ namespace Tellma.InsuranceImporter
             var tenantProfile = await _service.GetTenantProfile(tenantId, cancellationToken);
 
             // Log tenant info
-            _logger.LogInformation("\n \n Processing tenant {TenantCode} (ID: {TenantId}, Name: {TenantName}) with {Count} technicals worksheets. \n \n",
-                tenantCode, tenantId, tenantProfile.CompanyName, tenantWorks.Count);
+            _logger.LogInformation("\n \n Processing tenant {TenantCode} (ID: {TenantId}, Name: {TenantName}) with {Count} entries for {Distinct} technicals worksheets. \n \n",
+                tenantCode, tenantId, tenantProfile.CompanyName, tenantWorks.Count, tenantWorks.Select(w => w.WorksheetId).Distinct().Count());
+
+            tenantWorks = ValidateWorksheets(tenantWorks);
 
             // validate creation or updating of worksheets
-            RemoveIf(ref tenantWorks, r => r.TellmaDocumentId > 0 && r.PostingDate < tenantProfile.ArchiveDate, "have a posting date before or on the archive date for existing technicals");
-            RemoveIf(ref tenantWorks, r => r.PostingDate < tenantProfile.FreezeDate, "have a posting date before or on the freeze date for new technicals");
+            RemoveIf(ref tenantWorks, 
+                r => r.TellmaDocumentId > 0 && r.PostingDate < tenantProfile.ArchiveDate,
+                $"have a posting date before or on the archive date {tenantProfile.ArchiveDate} for existing technicals");
+            
+            RemoveIf(ref tenantWorks, 
+                r => r.PostingDate < tenantProfile.FreezeDate, 
+                $"have a posting date before or on the freeze date {tenantProfile.FreezeDate} for new technicals");
 
             // Collections to hold documents before saving
             var technicalDocuments = new List<DocumentForSave>();
             var claimsDocuments = new List<DocumentForSave>();
+            
+            // Documents to be processed later.
+            //var retroDocuments = new List<DocumentForSave>();
+            //var postBalDocuments = new List<DocumentForSave>();
+            //var urbDocuments = new List<DocumentForSave>();
 
             // Agents/partners/accounts to be used in building documents
             var insuranceAgents = new List<Agent>();
@@ -145,7 +153,6 @@ namespace Tellma.InsuranceImporter
 
             insuranceAgentsCount = CheckInsuranceAgentsCount(insuranceAgentsCount, insuranceAgents.Count, "insured");
 
-
             // Business types
             var businessTypesCodes = tenantWorks.Select(w => w.BusinessTypeCode).Distinct().Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
             string? businessTypesFilter = businessTypesCodes.Any() ? string.Join(" OR ", businessTypesCodes.Select(b => $"Code='{b}'")) : null;
@@ -158,11 +165,14 @@ namespace Tellma.InsuranceImporter
             var businessTypesObjectResult = await _service.GetClientEntities(tenantId, TellmaClientProperty.Lookups.AsString(), businessTypeDefinitionId, businessTypesFilter, token: cancellationToken);
             var businessTypesResult = businessTypesObjectResult.ConvertAll(bt => (Lookup)bt);
 
+            // Exclude worksheets with invalid business types
             var missingBusinessTypes = tenantWorks.Where(t => !string.IsNullOrWhiteSpace(t.BusinessTypeCode) && !businessTypesResult.Select(bt => bt.Code).Contains(t.BusinessTypeCode)).Select(t => t.WorksheetId).Distinct().ToList();
             if (missingBusinessTypes.Any())
             {
+                _logger.LogError("Validation Error: ({Count}) WorksheetIds [{Ids}] business types [{Types}] do not exist in tellma.", missingBusinessTypes.Count, string.Join(", ", missingBusinessTypes), 
+                    string.Join(", ", tenantWorks.Where(w => !businessTypesResult.Select(bt => bt.Code).Contains(w.BusinessTypeCode)).Select(w => w.BusinessTypeCode)));
+                
                 tenantWorks = tenantWorks.Where(t => !missingBusinessTypes.Contains(t.WorksheetId)).ToList();
-                _logger.LogError("Validation Error: ({Count}) WorksheetIds [{Ids}] business types do not exist in tellma.", missingBusinessTypes.Count, string.Join(", ", missingBusinessTypes));
             }
 
             // Main business classes
@@ -172,11 +182,14 @@ namespace Tellma.InsuranceImporter
             var mainBusinessObjects = await _service.GetClientEntities(tenantId, TellmaClientProperty.Lookups.AsString(), mainBusinessClassDefinitionId, mainBusinessFilter, token: cancellationToken);
             var mainBusinessResult = mainBusinessObjects.ConvertAll(m => (Lookup)m);
 
+            // Exclude worksheets with invalid main business classes
             var missingMainBusiness = tenantWorks.Where(t => !string.IsNullOrWhiteSpace(t.BusinessMainClassCode) && !mainBusinessResult.Select(m => m.Code).Contains(t.BusinessMainClassCode)).Select(t => t.WorksheetId).Distinct().ToList();
             if (missingMainBusiness.Any())
             {
+                _logger.LogError("Validation Error: ({Count}) WorksheetIds [{Ids}] main business classes [{mbc}] do not exist in tellma.", missingMainBusiness.Count, string.Join(", ", missingMainBusiness), 
+                    string.Join(", ", tenantWorks.Where(w => !mainBusinessResult.Select(m => m.Code).Contains(w.BusinessMainClassCode)).Select(w => $"{w.BusinessMainClassCode} - {w.BusinessMainClassName}")));
+
                 tenantWorks = tenantWorks.Where(t => !missingMainBusiness.Contains(t.WorksheetId)).ToList();
-                _logger.LogError("Validation Error: ({Count}) WorksheetIds [{Ids}] main business classes do not exist in tellma.", missingMainBusiness.Count, string.Join(", ", missingMainBusiness));
             }
 
             // Risk countries
@@ -186,7 +199,21 @@ namespace Tellma.InsuranceImporter
             int riskCountryDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.LookupDefinitions.AsString(), TellmaEntityCode.Citizenship.AsString(), token: cancellationToken);
             var riskCountriesObjects = await _service.GetClientEntities(tenantId, TellmaClientProperty.Lookups.AsString(), riskCountryDefinitionId, riskCountriesFilter, token: cancellationToken);
             var riskCountriesResult = riskCountriesObjects.ConvertAll(rc => (Lookup)rc);
-
+            
+            // Warning for worksheets with invalid risk countries
+            var missingCountries = tenantWorks
+                .Where(w => string.IsNullOrWhiteSpace(w.RiskCountry) || !riskCountriesResult.Select(c => c.Code).Contains(w.RiskCountry))
+                .Select(sheet => new { sheet.WorksheetId, sheet.ContractCode, sheet.RiskCountry})
+                .Distinct()
+                .ToList();
+            if (missingCountries.Any())
+            {
+                _logger.LogWarning("Validation Warning: ({Count}) Worksheets [{Ids}] with contracts [{Contracts}] countries [{Countries}] do not exist in tellma", 
+                    missingCountries.Count,
+                    string.Join(", ", missingCountries.Select(c => c.WorksheetId).Distinct()),
+                    string.Join(", ", missingCountries.Select(c => c.ContractCode).Distinct()),
+                    string.Join(", ", missingCountries.Select(c => c.RiskCountry).Distinct()));
+            }
 
             // Contracts
             var groupedContracts = tenantWorks
@@ -304,24 +331,21 @@ namespace Tellma.InsuranceImporter
 
             var mappingAccounts = await mappingAccountsTask;
 
-            // Keep only worksheets with supported SICS Accounts
+            // Exclude worksheets with invalid SICS Accounts
             var supportedSICSAcc = mappingAccounts.Select(ma => $"{ma.AccountCode}-{ma.IsInward}").Distinct().ToList();
             var invalidTypeIds = tenantWorks.Where(t => !supportedSICSAcc.Any(p => $"{t.AccountCode}-{t.IsInward}" == $"{p}")).Select(t => t.WorksheetId).Distinct().ToList();
             if (invalidTypeIds.Any())
             {
-                tenantWorks = tenantWorks.Where(t => supportedSICSAcc.Any(p => $"{t.AccountCode}-{t.IsInward}" == $"{p}")).ToList();
-                _logger.LogError("Validation Error: ({Count}) WorksheetId [{Ids}] have an invalid SICS account.", invalidTypeIds.Count, string.Join(", ", invalidTypeIds));
+                RemoveIf(ref tenantWorks, t => invalidTypeIds.Contains(t.WorksheetId), 
+                    $"Validation Error: ({invalidTypeIds.Count}) Worksheets [{String.Join(", ", invalidTypeIds)}] have an invalid SICS account [{string.Join(", ", tenantWorks.Where(t => invalidTypeIds.Contains(t.WorksheetId)).Select(acc => acc.AccountCode))}] not mapped to Tellma.");
+
+                // Following line caused issues by removing only part of the invalid worksheets instead of all of them.
+                //tenantWorks = tenantWorks.Where(t => supportedSICSAcc.Any(p => $"{t.AccountCode}-{t.IsInward}" == $"{p}")).ToList();
             }
 
             tenantWorks = MapTechnicalAccounts(tenantWorks, mappingAccounts);
 
             tenantWorks = ValidateWorksheets(tenantWorks);
-
-            if (!tenantWorks.Any())
-            {
-                _logger.LogWarning("No new technical records to sync for tenant {Tenant}", tenantCode);
-                return;
-            }
 
             // Accounts batch
             var accountCodes = tenantWorks.SelectMany(w => new[] { w.AAccount, w.BAccount })
@@ -332,6 +356,23 @@ namespace Tellma.InsuranceImporter
             var accountsObjectResult = await _service.GetClientEntities(tenantId, TellmaClientProperty.Accounts.AsString(), filter: accountsFilter, token: cancellationToken);
             var accountsResult = accountsObjectResult.ConvertAll(a => (Account)a);
 
+            // Exclude worksheets with invalid accounts
+            var invalidAccountWorks = tenantWorks.Where(t =>
+                !accountsResult.Any(a => a.Code == t.AAccount) ||
+                !accountsResult.Any(a => a.Code == t.BAccount))
+                .Select(t => t.WorksheetId)
+                .Distinct()
+                .ToList();
+            if (invalidAccountWorks.Any())
+            {
+                _logger.LogError("Validation Error: ({Count}) WorksheetIds [{Ids}] have invalid accounts [{Accounts}].", 
+                    invalidAccountWorks.Count, 
+                    string.Join(", ", invalidAccountWorks), 
+                    string.Join(", ", tenantWorks.Where(t => invalidAccountWorks.Contains(t.WorksheetId)).Select(t => t.AAccount)));
+
+                tenantWorks = tenantWorks.Where(t => !invalidAccountWorks.Contains(t.WorksheetId)).ToList();
+            }
+
             // Entry types
             var entryTypeConcepts = tenantWorks.SelectMany(w => new[] { w.APurposeConcept, w.BPurposeConcept })
                 .Where(s => !string.IsNullOrWhiteSpace(s))
@@ -340,6 +381,28 @@ namespace Tellma.InsuranceImporter
             string? entryTypesFilter = entryTypeConcepts.Any() ? string.Join(" OR ", entryTypeConcepts.Select(et => $"Concept='{et}'")) : null;
             var entryTypesObjects = await _service.GetClientEntities(tenantId, TellmaClientProperty.EntryTypes.AsString(), filter: entryTypesFilter, token: cancellationToken);
             var entryTypesResult = entryTypesObjects.ConvertAll(et => (EntryType)et);
+
+            // Currencies batch
+            var currenciesObjectResult = await _service.GetClientEntities(tenantId, TellmaClientProperty.Currencies.AsString(), token: cancellationToken);
+            var currenciesResult = currenciesObjectResult.ConvertAll(c => (Currency)c);
+
+            // Remove technicals with currencies not in Tellma
+            var validCurrencies = currenciesResult.Select(c => c.Id).ToList();
+            var invalidCurrencies = tenantWorks.Where(w => !validCurrencies.Contains(w.ContractCurrencyId)).Select(w => w.ContractCurrencyId.ToUpper());
+            RemoveIf(ref tenantWorks,
+                w => !validCurrencies.Contains(w.ContractCurrencyId),
+                $"have currencies [{string.Join(", ", invalidCurrencies)}] not found in Tellma.");
+
+            // Noted date can't be in the far future
+            var maxAllowedNotedDate = DateTime.Now.AddYears(10);
+            var farFutureNotedDateWorks = tenantWorks.Where(w => w.NotedDate >= maxAllowedNotedDate && (w.AHasNotedDate || w.BHasNotedDate)).Select(w => w.NotedDate).Distinct().ToList();
+            RemoveIf(ref tenantWorks, w => w.NotedDate >= maxAllowedNotedDate && (w.AHasNotedDate || w.BHasNotedDate), $"have a noted date [{string.Join(", ", farFutureNotedDateWorks.Select(d => d.ToString("yyyy-MMM-dd")))}] in the far future for technicals");
+
+            if (!tenantWorks.Any())
+            {
+                _logger.LogWarning("No new technical records to sync for tenant {Tenant}", tenantCode);
+                return;
+            }
 
             // Document definitions and other ids
             int techDocDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.DocumentDefinitions.AsString(), TellmaEntityCode.TechnicalWorksheet.AsString(), token: cancellationToken);
@@ -376,7 +439,7 @@ namespace Tellma.InsuranceImporter
                 string? memo = tenantWorks.Where(w => w.WorksheetId == technical.WorksheetId).Max(w => w.TechnicalNotes) ?? "-";
                 if (memo.Length >255)
                 {
-                    _logger.LogWarning("Memo for worksheet {WorksheetId} exceeds255 characters and will be truncated.", technical.WorksheetId);
+                    _logger.LogWarning("Memo for worksheet {WorksheetId} exceeds 255 characters and will be truncated.", technical.WorksheetId);
                     memo = memo.Substring(0,255);
                 }
 
@@ -481,6 +544,7 @@ namespace Tellma.InsuranceImporter
             {
                 if (technicalDocuments.Any())
                 {
+                    _logger.LogInformation("Importing {count} technical documents for tenant {Tenant}", technicalDocuments.Count, tenantCode);
                     var techResult = await _service.SaveDocuments(tenantId, techDocDefinitionId, technicalDocuments, cancellationToken);
                     var technicalRecords = techResult.Select(r => new Technical { WorksheetId = $"TW{r.SerialNumber}", TellmaDocumentId = r.Id });
 
@@ -493,6 +557,7 @@ namespace Tellma.InsuranceImporter
 
                 if (claimsDocuments.Any())
                 {
+                    _logger.LogInformation("Importing {count} claims documents for tenant {Tenant}", claimsDocuments.Count, tenantCode);
                     var claimsResult = await _service.SaveDocuments(tenantId, claimDocDefinitionId, claimsDocuments, cancellationToken);
                     var claimRecords = claimsResult.Select(r => new Technical { WorksheetId = $"CW{r.SerialNumber}", TellmaDocumentId = r.Id });
 
@@ -506,7 +571,7 @@ namespace Tellma.InsuranceImporter
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occured while importing technicals for tenant {Tenant}", tenantCode);
+                _logger.LogError("An error occured while importing technicals for tenant {Tenant}: {ErrorMessage}", tenantCode, ex.Message);
                 throw;
             }
         }
@@ -515,7 +580,7 @@ namespace Tellma.InsuranceImporter
         {
             if (insuranceAgentsCount == updatedInsuranceAgentsCount)
             {
-                _logger.LogWarning("No new {agentCode} to sync", agentCode);
+                _logger.LogDebug("No new {agentCode} to sync", agentCode);
             }
             else
             {
@@ -552,13 +617,19 @@ namespace Tellma.InsuranceImporter
         {
             var valid = worksheets.ToList();
 
-            RemoveIf(ref valid, w => string.IsNullOrWhiteSpace(w.AgentCode), "have an invalid insurance agent");
-            RemoveIf(ref valid, w => string.IsNullOrWhiteSpace(w.ContractCode), "have an invalid contract");
-            RemoveIf(ref valid, w => string.IsNullOrWhiteSpace(w.BusinessMainClassCode), "have an invalid business main class");
-            RemoveIf(ref valid, w => Math.Abs(w.Direction) != 1, "have an invalid direction");
+            RemoveIf(ref valid, w => string.IsNullOrWhiteSpace(w.AgentCode), "Technical worksheet must have valid existing insurance agent code!");
+            RemoveIf(ref valid, w => string.IsNullOrWhiteSpace(w.AgentName), "Technical worksheet must have valid existing insurance agent name!");
+            RemoveIf(ref valid, w => string.IsNullOrWhiteSpace(w.ContractCode), "Technical worksheet must have valid contract code!");
+            RemoveIf(ref valid, w => string.IsNullOrWhiteSpace(w.ContractName), "Technical worksheet must have valid contract name!");
+            RemoveIf(ref valid, w => string.IsNullOrWhiteSpace(w.BusinessTypeCode), "Technical worksheet must have valid business type!");
+            RemoveIf(ref valid, w => string.IsNullOrWhiteSpace(w.BusinessMainClassCode), "Technical worksheet must have valid business main class!");
+            RemoveIf(ref valid, w => Math.Abs(w.Direction) != 1, $"Technical worksheet must have valid direction [{string.Join(", ", valid.Where(w => Math.Abs(w.Direction) != 1).Select(w => w.Direction).Distinct())}], must be either 1 or -1.");
 
             // Keep only worksheets with supported prefixes
-            var supportedPrefixes = new[] { "TW", "RT", "CW" };
+            var supportedPrefixes = (_options.CurrentValue.TechnicalSupportedPrefixes ?? "TW,CW")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
+
             var invalidTypeIds = valid.Where(t => !supportedPrefixes.Any(p => t.WorksheetId.StartsWith(p))).Select(t => t.WorksheetId).Distinct().ToList();
             if (invalidTypeIds.Any())
             {
@@ -618,6 +689,12 @@ namespace Tellma.InsuranceImporter
             if (!agents.Any()) return;
 
             var synced = await _service.SyncAgents(tenantId, definitionCode, agents, cancellationToken);
+
+            // Exclude already existing agents
+            insList = insList
+                .Where(existing => !synced.Any(s => s.Code == existing.Code))
+                .ToList();
+
             insList.AddRange(synced);
         }
 

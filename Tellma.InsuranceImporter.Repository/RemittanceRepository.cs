@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Options;
+using System.Data;
 using Tellma.InsuranceImporter.Contract;
 
 namespace Tellma.InsuranceImporter.Repository
@@ -7,7 +8,7 @@ namespace Tellma.InsuranceImporter.Repository
     {
         public RemittanceRepository(IOptions<InsuranceDBOptions> dbOptions) : base(dbOptions.Value.ConnectionString) { }
 
-        public async Task<List<Remittance>> GetWorksheets(CancellationToken token)
+        public async Task<List<Remittance>> GetWorksheets(bool includeImported, string filter, CancellationToken token)
         {
             List<Remittance> remittancesList = new List<Remittance>();
             string selectQuery = "SELECT [PK], " +
@@ -28,9 +29,12 @@ namespace Tellma.InsuranceImporter.Repository
                                     "[VALUE_FC2], " +
                                     "[RemitType], " +
                                     "[Remittance_Notes], " +
-                                    "[TELLMA_DOCUMENT_ID] " +
+                                    "[TELLMA_DOCUMENT_ID], " +
+                                    "[BAL_OBJECT_ID], " +
+                                    "[TRANSFER_TO_TELLMA] " +
                                 "FROM [Remittances] " +
-                                "WHERE TRANSFER_TO_TELLMA = N'N' AND IMPORT_DATE IS NULL AND VALUE_FC2 <> 0;";
+                                "WHERE 1=1 " + filter + " " + (includeImported ? " " : " AND [TRANSFER_TO_TELLMA] = N'N' ");
+            
             using (var reader = await ExecuteReaderAsync(selectQuery))
             {
                 while (await reader.ReadAsync())
@@ -55,7 +59,9 @@ namespace Tellma.InsuranceImporter.Repository
                         ValueFC2 = Math.Round(reader.GetDecimal(15), 6),
                         RemittanceType = reader.GetString(16),
                         RemittanceNotes = !reader.IsDBNull(17) ? reader.GetString(17) : null,
-                        DocumentId = !reader.IsDBNull(18) ? reader.GetInt32(18) : 0
+                        TellmaDocumentId = !reader.IsDBNull(18) ? reader.GetInt32(18) : 0,
+                        BalObjectId = !reader.IsDBNull(19) ? reader.GetString(19) : String.Empty,
+                        TransferToTellma = !reader.IsDBNull(20) ? reader.GetString(20) : "N",
                     });
                 }
             }
@@ -130,7 +136,7 @@ namespace Tellma.InsuranceImporter.Repository
             foreach (var remittance in remittances)
             {
                 string updateStatement = "UPDATE [dbo].[Remittances] " +
-                                         $"SET TELLMA_DOCUMENT_ID = {remittance.DocumentId} " +
+                                         $"SET TELLMA_DOCUMENT_ID = {remittance.TellmaDocumentId} " +
                                       $"WHERE TENANT_CODE = '{tenantCode}' AND WORKSHEET_ID = '{remittance.WorksheetId}';";
                 query.Add(updateStatement);
             }

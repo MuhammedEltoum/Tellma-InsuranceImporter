@@ -1,12 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Tellma.Api.Dto;
-using Tellma.Client;
-using Tellma.InsuranceImporter.Contract;
 using Tellma.InsuranceImporter.Enums;
 using Tellma.InsuranceImporter.Repository;
 using Tellma.Model.Application;
-using Tellma.Utilities.EmailLogger;
 
 namespace Tellma.InsuranceImporter
 {
@@ -17,11 +13,11 @@ namespace Tellma.InsuranceImporter
         private readonly ILogger<TellmaService> _logger;
 
         public ExchangeRatesService(IExchangeRatesRepository repository,
+            ITellmaService tellmaService,
             ILogger<TellmaService> logger, 
-            EmailLogger emailLogger,
             IOptions<TellmaOptions> options)
         {
-            _service = new TellmaService(logger, options);
+            _service = tellmaService;
             _repository = repository;
             _logger = logger;
         }
@@ -30,13 +26,20 @@ namespace Tellma.InsuranceImporter
         {
             var tenantId = InsuranceHelper.GetTenantId(tenantCode);
 
-            //start of validation
+            var tenantProfile = await _service.GetTenantProfile(tenantId, cancellationToken);
+
+            // Get latest exchange rates from Tellma
             var startOfCurrentMonth = DateTime.Now.AddDays(1 - DateTime.Now.Day).ToString("yyyy-MM-dd");
             string filter = $"ValidAsOf >= '{startOfCurrentMonth}'";
             var exchangeObjectRatesResult = await _service
                 .GetClientEntities(tenantId, TellmaClientProperty.ExchangeRates.AsString(), null, filter, cancellationToken);
             var exchangeRatesResult = exchangeObjectRatesResult
-                .ConvertAll(o => (Contract.ExchangeRate)o);
+                .ConvertAll(o => (Tellma.Model.Application.ExchangeRate)o);
+            
+            // Log tenant info
+            _logger.LogInformation("\n \n Processing tenant {TenantCode} (ID: {TenantId}, Name: {TenantName}) with {Count} exchange rates. \n \n",
+                tenantCode, tenantId, tenantProfile.CompanyName, exchangeRatesResult.Count);
+
             var tellmaExchangeRates = exchangeRatesResult
                 .Select(e => new ExchangeRateForSave
                 {
@@ -46,8 +49,10 @@ namespace Tellma.InsuranceImporter
                     AmountInCurrency = e.AmountInCurrency,
                     AmountInFunctional = e.AmountInFunctional
                 }).ToList();
-            var worksheets = await _repository.GetLatestExchangeRatesFromDB();
-            var dbExchangeRatesList = worksheets
+
+            // Get latest exchange rates from SICS database
+            var dbExchangeRates = await _repository.GetLatestExchangeRatesFromDB();
+            var dbExchangeRatesList = dbExchangeRates
                 .Select(e => new ExchangeRateForSave
                 {
                     CurrencyId = e.CurrencyId,
@@ -56,7 +61,7 @@ namespace Tellma.InsuranceImporter
                     AmountInFunctional = e.AmountInFunctional
                 }).ToList();
 
-            var tellmaExchangeRatesCompare = dbExchangeRatesList
+            var tellmaExchangeRatesCompare = tellmaExchangeRates
                 .Select(r => r.CurrencyId + '-' + r.ValidAsOf + '-' + r.AmountInCurrency + '-' + r.AmountInFunctional);
 
             //Exclude existing exchange rates in tellma from dbExchangeRates.
@@ -92,6 +97,5 @@ namespace Tellma.InsuranceImporter
                 _service.LogTellmaError(ex);
             }
         }
-
     }
 }

@@ -48,6 +48,9 @@ namespace Tellma.InsuranceImporter.Repository
             var connection = await GetConnectionAsync();
             var command = new OleDbCommand(sql, connection);
 
+            // Set a longer timeout for potentially long-running queries
+            command.CommandTimeout = 300; // 5 minutes
+
             if (parameters != null)
             {
                 command.Parameters.AddRange(parameters);
