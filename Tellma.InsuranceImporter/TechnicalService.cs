@@ -337,7 +337,7 @@ namespace Tellma.InsuranceImporter
             if (invalidTypeIds.Any())
             {
                 RemoveIf(ref tenantWorks, t => invalidTypeIds.Contains(t.WorksheetId), 
-                    $"Validation Error: ({invalidTypeIds.Count}) Worksheets [{String.Join(", ", invalidTypeIds)}] have an invalid SICS account [{string.Join(", ", tenantWorks.Where(t => invalidTypeIds.Contains(t.WorksheetId)).Select(acc => acc.AccountCode))}] not mapped to Tellma.");
+                    $"Have an invalid SICS account [{string.Join(", ", tenantWorks.Where(t => invalidTypeIds.Contains(t.WorksheetId)).Select(acc => $"{acc.AccountCode} - {acc.IsInward}").Distinct())}] not mapped to Tellma.");
 
                 // Following line caused issues by removing only part of the invalid worksheets instead of all of them.
                 //tenantWorks = tenantWorks.Where(t => supportedSICSAcc.Any(p => $"{t.AccountCode}-{t.IsInward}" == $"{p}")).ToList();
@@ -368,7 +368,7 @@ namespace Tellma.InsuranceImporter
                 _logger.LogError("Validation Error: ({Count}) WorksheetIds [{Ids}] have invalid accounts [{Accounts}].", 
                     invalidAccountWorks.Count, 
                     string.Join(", ", invalidAccountWorks), 
-                    string.Join(", ", tenantWorks.Where(t => invalidAccountWorks.Contains(t.WorksheetId)).Select(t => t.AAccount)));
+                    string.Join(", ", tenantWorks.Where(t => invalidAccountWorks.Contains(t.WorksheetId)).Select(t => t.AAccount).Distinct()));
 
                 tenantWorks = tenantWorks.Where(t => !invalidAccountWorks.Contains(t.WorksheetId)).ToList();
             }

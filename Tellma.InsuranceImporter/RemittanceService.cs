@@ -86,7 +86,7 @@ namespace Tellma.InsuranceImporter
                 insuranceAgents.AddRange(synced);
             }
 
-            //BankAccounts validation
+            // BankAccounts validation
             // Can't sync due to missing bankId
             int bankAccountDefinitionId = await _service.GetIdByCodeAsync(tenantId, TellmaClientProperty.AgentDefinitions.AsString(), TellmaEntityCode.BankAccount.AsString(), token: cancellationToken);
             string? baBatchFilter = String.Join(" OR ", validRemittanceList.Where(ba => !String.IsNullOrWhiteSpace(ba.BankAccountCode)).Select(r => $"Text3='{r.BankAccountCode}'").Distinct());
@@ -95,7 +95,7 @@ namespace Tellma.InsuranceImporter
             var bankAccountsResult = bankAccountsObjectResult.ConvertAll(agent => (Agent)agent);
             var tellmaBankAccountsCodes = bankAccountsResult.Select(ba => ba.Text3);
             var missingBARemittances = validRemittanceList
-                .Where(r => !tellmaBankAccountsCodes.Contains(r.BankAccountCode) && r.RemittanceType.ToLower() != "write_off")
+                .Where(r => !tellmaBankAccountsCodes.Contains(r.BankAccountCode) && r.RemittanceType.ToLower() != "write_off" && r.RemittanceType.ToLower() != "bcharge")
                 .Select(r => r.WorksheetId)
                 .Distinct()
                 .ToList();
@@ -115,7 +115,8 @@ namespace Tellma.InsuranceImporter
                 .Distinct();
 
             var missingBACurrencyRemittances = validRemittanceList
-                .Where(r => !tellmaBankAccCurrencies.Contains(r.BankAccountCode + " - " + r.BankAccountCurrencyId) && r.RemittanceType.ToLower() != "write_off")
+                .Where(r => r.RemittanceType.ToLower() != "write_off" && r.RemittanceType.ToLower() != "bcharge")
+                .Where(r => !tellmaBankAccCurrencies.Contains(r.BankAccountCode + " - " + r.BankAccountCurrencyId))
                 .Select(r => r.WorksheetId)
                 .Distinct();
 
@@ -180,9 +181,11 @@ namespace Tellma.InsuranceImporter
 
             // Remove remittance with currencies not in Tellma
             var validCurrencies = currenciesResult.Select(c => c.Id).ToList();
-            var invalidCurrencies = validRemittanceList.Where(w => !validCurrencies.Contains(w.BankAccountCurrencyId) || !validCurrencies.Contains(w.TransferCurrencyId)).Select(w => new { w.BankAccountCurrencyId, w.TransferCurrencyId });
+            var invalidCurrencies = validRemittanceList
+                .Where(r => r.RemittanceType.ToLower() != "write_off" && r.RemittanceType.ToLower() != "bcharge")
+                .Where(w => !validCurrencies.Contains(w.BankAccountCurrencyId) || !validCurrencies.Contains(w.TransferCurrencyId)).Select(w => new{ w.BankAccountCurrencyId, w.TransferCurrencyId });
             RemoveIf(ref validRemittanceList,
-                w => !validCurrencies.Contains(w.BankAccountCurrencyId) || !validCurrencies.Contains(w.TransferCurrencyId),
+                w => w.RemittanceType.ToLower() != "write_off" && w.RemittanceType.ToLower() != "bcharge"  && (!validCurrencies.Contains(w.BankAccountCurrencyId) || !validCurrencies.Contains(w.TransferCurrencyId)),
                 $"have currencies {string.Join(", ", invalidCurrencies)} not found in Tellma.");
 
             if (!validRemittanceList.Any())
