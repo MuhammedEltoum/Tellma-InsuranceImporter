@@ -4,6 +4,9 @@ using Microsoft.Extensions.Options;
 using MimeKit;
 using System.Text;
 using System.Threading;
+using Google.GenAI;
+using Google.GenAI.Types;
+
 
 namespace Tellma.Utilities.EmailLogger
 {
@@ -109,8 +112,10 @@ namespace Tellma.Utilities.EmailLogger
 
                     reportMessage.Subject = $"{_options.InstallationIdentifier ?? "Unknown"}: {reportTitle} - {DateTime.Now:yyyy-MM-dd HH:mm:ss}";
 
+                    Console.WriteLine("Starting email process...");
+
                     var reportText = GenerateReportText();
-                    var reportHtml = GenerateReportHtml(reportTitle);
+                    var reportHtml = String.IsNullOrWhiteSpace(_options.GoogleGeminiApiKey) ? GenerateReportHtml(reportTitle) : Task.Run(() => GenerateAIDashboardReport()).Result;
 
                     var bodyBuilder = new BodyBuilder();
                     bodyBuilder.TextBody = reportText;
@@ -127,6 +132,7 @@ namespace Tellma.Utilities.EmailLogger
                     client.Send(reportMessage);
                     client.Disconnect(true);
 
+                    Console.WriteLine("Email sent successfuly!");
                     // Clear log entries after sending report
                     _logEntries.Clear();
                 }
@@ -184,7 +190,15 @@ namespace Tellma.Utilities.EmailLogger
         <p><strong>Generated:</strong> {DateTime.Now:yyyy-MM-dd HH:mm:ss}</p>
         <p><strong>Installation:</strong> {_options.InstallationIdentifier ?? "Unknown"}</p>
         <p><strong>Total Entries:</strong> {_logEntries.Count}</p>
-    </div>");
+    </div>
+<br>
+<div class='header' style='{(string.IsNullOrWhiteSpace(_options.GoogleGeminiApiKey) ? "display: none;" : String.Empty)}'>
+        <p>
+<strong>AI Summary</strong><br>
+{(string.IsNullOrWhiteSpace(_options.GoogleGeminiApiKey) ? String.Empty : Task.Run(() => GenerateAISummaryReport()).Result)}
+</p>
+    </div>
+");
 
             foreach (var entry in CleanLogEntries(_logEntries))
             {
@@ -258,5 +272,273 @@ namespace Tellma.Utilities.EmailLogger
                 .ToList();
         }
 
+        private async Task<string> GenerateAISummaryReport()
+        {
+            if (string.IsNullOrWhiteSpace(_options.GoogleGeminiApiKey))
+            {
+                return string.Empty;
+                //throw new InvalidOperationException("Google Gemini API key is not configured.");
+            }
+
+            // 1. Efficiently build the prompt
+            var sb = new StringBuilder();
+            sb.AppendLine("Summarize the following technical logs into a concise executive report inside a single <p></p> (max 1500 chars).");
+            sb.AppendLine("Focus on: Success counts, critical warnings, and worksheets outliers.");
+            sb.AppendLine("Logs:");
+
+            foreach (var entry in _logEntries)
+            {
+                sb.AppendLine($"{entry.Timestamp:HH:mm:ss} [{entry.Level}] {entry.Message}");
+            }
+
+            try
+            {
+                // 2. Initialize the client
+                var client = new Client(apiKey: _options.GoogleGeminiApiKey);
+
+                //string prompt = $@"
+                //                Act as a UI/UX Designer. Convert these technical logs into a high-end, executive HTML dashboard widget.
+    
+                //                STYLE RULES:
+                //                1. Container: Use a max-width of 600px, border-radius 12px, box-shadow, and a subtle light-blue background (#fcfdfe).
+                //                2. Header: Create a modern header with a dark blue (#1a202c) background and white text.
+                //                3. Metrics Row: Show 'Total Documents' and 'Status' as side-by-side 'cards' with large bold numbers.
+                //                4. Data Table: For Warnings, use a clean <table> with subtle zebra-striping and a 'Pill Badge' (rounded background) for the percentage values.
+                //                5. Warnings: Use a soft-red background (#fff5f5) and a thick left border for critical errors.
+    
+                //                TECHNICAL RULES:
+                //                - Use ONLY inline CSS.
+                //                - Return ONLY the <div>. No markdown backticks (```html), no <html> tags.
+                //                - Use 'Segoe UI', Roboto, or Helvetica.
+    
+                //                LOG DATA:
+                //                {sb.ToString()}";
+
+                // 3. Request generation
+                var response = await client.Models.GenerateContentAsync(
+                    model: "gemini-2.5-flash-lite",
+                    contents: sb.ToString()
+                );
+
+                // 4. Navigate the official Google.GenAI response structure
+                // Candidates[0] -> Content -> Parts[0] -> Text
+                var candidate = response?.Candidates?.FirstOrDefault();
+
+                if (candidate?.Content?.Parts != null)
+                {
+                    // Join all parts in case the model returned multiple segments
+                    var resultText = string.Join("\n",
+                        candidate.Content.Parts.Select(p => p.Text));
+
+                    return !string.IsNullOrWhiteSpace(resultText)
+                        ? resultText
+                        : "The model returned an empty response.";
+                }
+
+                return "No summary candidate was generated.";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return $"Error generating report: {ex.Message}";
+            }
+        }
+        private async Task<string> GenerateAIDashboardReport()
+        {
+            if (string.IsNullOrWhiteSpace(_options.GoogleGeminiApiKey))
+            {
+                return string.Empty;
+                //throw new InvalidOperationException("Google Gemini API key is not configured.");
+            }
+
+            // 1. Efficiently build the prompt
+            var sb = new StringBuilder();
+            foreach (var entry in _logEntries)
+            {
+                sb.AppendLine($"{entry.Timestamp:HH:mm:ss} [{entry.Level}] {entry.Message}");
+            }
+
+            try
+            {
+                // 2. Initialize the client
+                var client = new Client(apiKey: _options.GoogleGeminiApiKey);
+
+                string prompt = $@"
+                            Role: You are a Frontend Email Automation Bot.
+
+Task: I will provide you with Server Logs. You must output a single HTML file based strictly on the HTML Template provided below.
+
+Instructions:
+
+Analyze the Logs: Calculate the total time, identify the status of the 4 sections (Exchange, Remittance, Technical, Pairing), and summarize the specific errors/warnings.
+
+Fill the Template: Replace the content inside the HTML tags with the data from the logs.
+
+Visual Logic:
+
+If a section has no errors, use the class badge-success and text ""Success"".
+
+If a section is empty/skipped, use the class badge-warning and text ""Empty"" or ""Skipped"".
+
+If a section has errors, use the class badge-error and text ""Error"" or ""Fail"".
+
+Raw Logs: detailed logs must be placed inside the <pre> tag at the bottom of the email.
+
+Do NOT change the CSS or Layout. Only update the text content and the specific classes mentioned above.
+
+The HTML Template:
+
+HTML
+
+<!DOCTYPE html>
+<html lang=""en"">
+<head>
+    <meta charset=""UTF-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+    <title>Import Status Report</title>
+    <style>
+        body {{ margin: 0; padding: 0; background-color: #f4f6f8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }}
+        .wrapper {{ width: 100%; table-layout: fixed; background-color: #f4f6f8; padding-bottom: 40px; }}
+        .main-container {{ background-color: #ffffff; margin: 0 auto; width: 100%; max-width: 600px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-top: 20px; }}
+        .header {{ background-color: #2c3e50; padding: 30px 40px; text-align: center; }}
+        .header h1 {{ color: #ffffff; margin: 0; font-size: 24px; font-weight: 600; }}
+        .header p {{ color: #aab7c4; margin: 5px 0 0 0; font-size: 14px; }}
+        .summary-grid {{ padding: 20px 40px; background-color: #ecf0f1; border-bottom: 1px solid #e1e8ed; }}
+        .stat-box {{ width: 32%; display: inline-block; vertical-align: top; text-align: center; }}
+        .stat-label {{ font-size: 11px; text-transform: uppercase; color: #7f8c8d; letter-spacing: 1px; font-weight: bold; }}
+        .stat-value {{ font-size: 18px; font-weight: 700; color: #2c3e50; margin-top: 5px; }}
+        .content-section {{ padding: 30px 40px; border-bottom: 1px solid #f0f0f0; }}
+        .section-title {{ font-size: 18px; font-weight: 600; color: #34495e; margin: 0; }}
+        .badge {{ padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; text-transform: uppercase; }}
+        .badge-success {{ background-color: #e8f8f5; color: #27ae60; }}
+        .badge-warning {{ background-color: #fef9e7; color: #f1c40f; }}
+        .badge-error {{ background-color: #fdedec; color: #c0392b; }}
+        .issue-list {{ background-color: #fff8f8; border-left: 4px solid #e74c3c; padding: 15px; margin-top: 15px; border-radius: 4px; }}
+        .issue-list.warning {{ background-color: #fffcf0; border-left: 4px solid #f1c40f; }}
+        .issue-item {{ font-size: 13px; color: #555; margin-bottom: 8px; line-height: 1.4; display: block; }}
+        .raw-log-container {{ background-color: #1e1e1e; color: #cccccc; padding: 20px; font-family: 'Courier New', Courier, monospace; font-size: 11px; overflow-x: hidden; white-space: pre-wrap; word-wrap: break-word; }}
+        .footer {{ background-color: #f4f6f8; padding: 20px; text-align: center; font-size: 12px; color: #95a5a6; }}
+    </style>
+</head>
+<body>
+    <div class=""wrapper"">
+        <div class=""main-container"">
+            <div class=""header"">
+                <h1>Import Status Report</h1>
+                <p>Tenant: [INSERT TENANT NAME/ID HERE]</p>
+            </div>
+
+            <div class=""summary-grid"">
+                <div class=""stat-box"">
+                    <div class=""stat-label"">Total Time</div>
+                    <div class=""stat-value"">[INSERT TOTAL TIME]</div>
+                </div>
+                <div class=""stat-box"">
+                    <div class=""stat-label"">Date</div>
+                    <div class=""stat-value"">{DateTime.Now:f}</div>
+                </div>
+                <div class=""stat-box"">
+                    <div class=""stat-label"">Overall Status</div>
+                    <div class=""stat-value"" style=""color: #2c3e50;"">[INSERT OVERALL STATUS]</div>
+                </div>
+            </div>
+
+            <div class=""content-section"">
+                <div style=""margin-bottom: 10px;"">
+                    <span class=""section-title"">1. Exchange Rates</span>
+                    <span class=""badge [INSERT CLASS]"" style=""float: right;"">[INSERT STATUS TEXT]</span>
+                </div>
+                <div style=""font-size: 13px; color: #555;"">
+                    [INSERT 1 SENTENCE SUMMARY OR SUCCESS MESSAGE]
+                </div>
+            </div>
+
+            <div class=""content-section"">
+                <div style=""margin-bottom: 10px;"">
+                    <span class=""section-title"">2. Remittance</span>
+                    <span class=""badge [INSERT CLASS]"" style=""float: right;"">[INSERT STATUS TEXT]</span>
+                </div>
+                <div style=""font-size: 13px; color: #555;"">
+                     [INSERT SUMMARY]
+                </div>
+                <div class=""issue-list [ADD CLASS]"">
+                    <div class=""issue-item"">[INSERT SUMMARY 1]</div>
+                </div>
+            </div>
+
+            <div class=""content-section"">
+                <div style=""margin-bottom: 10px;"">
+                    <span class=""section-title"">3. Technical Data</span>
+                    <span class=""badge [INSERT CLASS]"" style=""float: right;"">[INSERT STATUS TEXT]</span>
+                </div>
+                <div style=""font-size: 13px; color: #555;"">
+                     [INSERT SUMMARY]
+                </div>
+                 <div class=""issue-list [ADD CLASS]"">
+                    <div class=""issue-item""><strong>[LOG TYPE]:</strong> [DETAILS]</div>
+                </div>
+            </div>
+
+            <div class=""content-section"">
+                <div style=""margin-bottom: 10px;"">
+                    <span class=""section-title"">4. Pairing</span>
+                    <span class=""badge [INSERT CLASS]"" style=""float: right;"">[INSERT STATUS TEXT]</span>
+                </div>
+                 <div class=""issue-list [ADD CLASS]"">
+                    <div class=""issue-item"">[INSERT SUMMARY]</div>
+                </div>
+            </div>
+
+            <div class=""raw-log-container"">
+                <h3 style=""color: #fff; margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 10px;"">Raw System Logs</h3>
+<pre>[INSERT FULL RAW LOGS TEXT HERE]</pre>
+            </div>
+
+            <div class=""footer"">
+                <p>Generated by Tellma Insurance Importer</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+Logs: {sb.ToString()}";
+
+                //var models = await client.Models.ListAsync();
+
+                // 3. Request generation
+                var response = await client.Models.GenerateContentAsync(
+                    model: "gemini-2.5-flash",
+                    contents: prompt
+                );
+
+
+                // 4. Navigate the official Google.GenAI response structure
+                // Candidates[0] -> Content -> Parts[0] -> Text
+                var candidate = response?.Candidates?.FirstOrDefault();
+
+                if (candidate?.Content?.Parts != null)
+                {
+                    // Join all parts in case the model returned multiple segments
+                    var resultText = string.Join("\n",
+                        candidate.Content.Parts.Select(p => p.Text));
+
+                    resultText = resultText
+                        .Replace("```html", "")
+                        .Replace("```", "")
+                        .Trim();
+
+                    return !string.IsNullOrWhiteSpace(resultText)
+                        ? resultText
+                        : "The model returned an empty response.";
+                }
+
+                return "No summary candidate was generated.";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error generating report: {ex.Message}" + ex.ToString());
+                return GenerateReportHtml("Service Activity Report");
+            }
+        }
     }
 }

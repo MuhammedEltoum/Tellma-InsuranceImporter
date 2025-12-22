@@ -27,6 +27,8 @@ namespace Tellma.InsuranceImporter.Repository
                 command.Parameters.AddRange(parameters);
             }
 
+            command.CommandTimeout = 300; // 5 minutes
+
             return await command.ExecuteNonQueryAsync();
         }
 
@@ -39,6 +41,8 @@ namespace Tellma.InsuranceImporter.Repository
             {
                 command.Parameters.AddRange(parameters);
             }
+
+            command.CommandTimeout = 300; // 5 minutes
 
             return await command.ExecuteScalarAsync();
         }

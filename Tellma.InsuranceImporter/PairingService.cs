@@ -25,20 +25,38 @@ namespace Tellma.InsuranceImporter
             _pairingRepository = pairingRepository;
             _logger = logger;
             _insuranceOptions = insuranceOptions;
-
-
         }
 
         public async Task Import(string tenantCode, CancellationToken cancellationToken)
         {
             try
             {
-                string pairingFilter = $"AND t.[TENANT_CODE] = '{tenantCode}' AND r.[TENANT_CODE] = '{tenantCode}' AND ([TENANT_CODE1] = '{tenantCode}' OR [TENANT_CODE2] = '{tenantCode}')";
-                var allWorksheets = (await _pairingRepository.GetWorksheets(false, pairingFilter, cancellationToken)).ToList();
+                string pairingFilter = $"p.[IMPORT_DATE] IS NULL " +
+                    $"AND t.[IMPORT_DATE] IS NOT NULL AND r.[IMPORT_DATE] IS NOT NULL " +
+                    $"AND t.[TENANT_CODE] = '{tenantCode}' AND r.[TENANT_CODE] = '{tenantCode}' " +
+                    $"AND ([TENANT_CODE1] = '{tenantCode}' OR [TENANT_CODE2] = '{tenantCode}') " +
+                    $"AND (tmt.CanBePairing = 1 OR tmt.[B Account] is null)";
+
+                var allWorksheets = await _pairingRepository.GetWorksheets(pairingFilter, cancellationToken);
+
+                var excludedWorksheetsFilter = $"p.[IMPORT_DATE] IS NULL " +
+                    $"AND (t.[IMPORT_DATE] IS NULL OR r.[IMPORT_DATE] IS NULL) " + // This will get pairing worksheet that have unimported remittance or technicals.
+                    $"AND t.[TENANT_CODE] = '{tenantCode}' AND r.[TENANT_CODE] = '{tenantCode}' " +
+                    $"AND ([TENANT_CODE1] = '{tenantCode}' OR [TENANT_CODE2] = '{tenantCode}') " +
+                    $"AND (tmt.CanBePairing = 1 OR tmt.[B Account] is null)";
+
+                var badWorksheets = (await _pairingRepository.GetWorksheets(excludedWorksheetsFilter, cancellationToken))
+                                    .Select(bad => $"PK: {bad.Pk} has nonimported Remit: {bad.RemitWorksheet} or Tech: {bad.TechWorksheet}")
+                                    .Distinct()
+                                    .ToList();
+
+                if (badWorksheets.Any())
+                _logger.LogWarning("Import Warning: ({Count}) Pairing worksheets will not be imported! \n {BadWorsheets}", badWorksheets.Count, String.Join(" \n ", badWorksheets));
+
 
                 if (!allWorksheets.Any())
                 {
-                    _logger.LogDebug("No worksheets for tenant {TenantCode}", tenantCode);
+                    _logger.LogInformation("Sucess: Pairing is up to date for tenant {TenantCode}", tenantCode);
                     return;
                 }
 
@@ -87,6 +105,11 @@ namespace Tellma.InsuranceImporter
             RemoveIf(ref tenantWorks,
                 w => !currencies.Select(c => c.Id).Contains(w.TechCurrency) || !currencies.Select(c => c.Id).Contains(w.RemitCurrency),
                 $"have currencies {string.Join(", ", tenantWorks.Select(w => w.TechCurrency).Union(tenantWorks.Select(w => w.RemitCurrency)).Except(currencies.Select(c => c.Id)))} not found in Tellma.");
+
+            // Remove pairings with zero contract and sum values.
+            tenantWorks = tenantWorks
+                .Where(w => Math.Abs(w.SumMonetaryValue) > 0 && Math.Abs(w.SumValue) > 0)
+                .ToList();
 
             // 3. Get definition IDs
             var definitions = await GetDefinitionIds(tenantId, cancellationToken);
@@ -279,7 +302,7 @@ namespace Tellma.InsuranceImporter
                 return new List<Tellma.Model.Application.ExchangeRate>();
 
             var currencyFilter = $"({string.Join(" OR ", currencyCodes.Select(c => $"CurrencyId='{c}'"))})";
-            var exchangeRatesFilter = $"ValidAsOf <= '{maxPaymentDate:yyyy-MM-dd}'";
+            var exchangeRatesFilter = $"ValidAsOf >= '{minPaymentDate:yyyy-MM-dd}' AND ValidAsOf <= '{maxPaymentDate:yyyy-MM-dd}'";
 
             exchangeRatesFilter = currencyFilter.Length + 55 < 1024 ? $"{exchangeRatesFilter} AND {currencyFilter}" : exchangeRatesFilter;
             var exchangeRatesObjectResult = await _service.GetClientEntities(tenantId,
@@ -632,6 +655,13 @@ namespace Tellma.InsuranceImporter
             RemoveIf(ref valid, w => string.IsNullOrEmpty(w.RemitWsId) || string.IsNullOrEmpty(w.TechWsId),
                 "have null or empty worksheet IDs.");
 
+            // Remove zero amounts in technical
+            valid = valid.Where(w => Math.Abs(w.SumMonetaryValue) > 0 && Math.Abs(w.SumValue) > 0).ToList();
+
+            // Tech and Remit direction must be either 1 or -1
+            RemoveIf(ref valid, w => Math.Abs(w.TechDirection) != 1 && Math.Abs(w.TechDirection) != -1,
+                "have invalid technical direction.");
+
             // Validate worksheet types
             List<string> supportedWorksheets = _insuranceOptions.CurrentValue.PairingSupportedPrefixes
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -641,7 +671,6 @@ namespace Tellma.InsuranceImporter
                 !supportedWorksheets.Any(p => w.RemitWorksheet.StartsWith(p)) ||
                 !supportedWorksheets.Any(p => w.TechWorksheet.StartsWith(p)),
                 "have unsupported worksheet types.");
-
 
             RemoveIf(ref valid, w => w.RemittancePaymentDate == DateTime.MinValue, "have null remittance payment date.");
 
@@ -653,6 +682,8 @@ namespace Tellma.InsuranceImporter
             // Remittance amount cannot be zero and Technical amount cannot be zero
             RemoveIf(ref valid, w => w.RemitAmount == 0, "have zero remittance amount.");
             RemoveIf(ref valid, w => w.TechAmount == 0, "have zero technical amount.");
+
+
 
             return valid;
         }
