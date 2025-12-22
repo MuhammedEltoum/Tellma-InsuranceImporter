@@ -25,8 +25,8 @@ namespace Tellma.InsuranceImporter
 
         public async Task Import(string tenantCode, CancellationToken cancellationToken)
         {
-            string filter = $" AND [TENANT_CODE] = '{tenantCode}'";
-            var allWorksheets = await _repository.GetWorksheets(false, filter, cancellationToken);
+            string filter = $"[IMPORT_DATE] IS NULL AND [TENANT_CODE] = '{tenantCode}'";
+            var allWorksheets = await _repository.GetWorksheets(filter, cancellationToken);
 
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -45,7 +45,7 @@ namespace Tellma.InsuranceImporter
         {
             if (!tenantWorks.Any())
             {
-                _logger.LogWarning("No worksheets for tenant {TenantCode}", tenantCode);
+                _logger.LogInformation("Success! Technical worksheets are up to date for tenant {TenantCode}", tenantCode);
                 return;
             }
 
@@ -293,26 +293,25 @@ namespace Tellma.InsuranceImporter
 
             // Customer accounts
             var dbCustomerAccounts = tenantWorks
-                .Select(cstmr => new
+                .Select(cstmr => 
                 {
-                    Code = $"{cstmr.ContractCode}-{cstmr.BusinessMainClassCode}-{cstmr.AgentCode}",
-                    Name = $"{cstmr.ContractCode}-{cstmr.BusinessMainClassCode}-{cstmr.AgentCode}: " + tenantWorks
+                    string contractName = tenantWorks
                         .Where(tw => tw.ContractCode == cstmr.ContractCode
                             && tw.BusinessMainClassCode == cstmr.BusinessMainClassCode
                             && tw.AgentCode == cstmr.AgentCode)
                         .OrderByDescending(w => w.PostingDate)
                         .FirstOrDefault()?
-                        .ContractName,
-                    Name2 = $"{cstmr.ContractCode}-{cstmr.BusinessMainClassCode}-{cstmr.AgentCode}: " + tenantWorks
-                        .Where(tw => tw.ContractCode == cstmr.ContractCode
-                            && tw.BusinessMainClassCode == cstmr.BusinessMainClassCode
-                            && tw.AgentCode == cstmr.AgentCode)
-                        .OrderByDescending(w => w.PostingDate)
-                        .FirstOrDefault()?
-                        .ContractName,
-                    Agent1Id = insuranceAgents.FirstOrDefault(ia => ia.Code == cstmr.AgentCode)?.Id,
-                    Agent2Id = contractsResult.FirstOrDefault(c => c.Code == cstmr.ContractCode)?.Id,
-                    Lookup2Id = mainBusinessResult.FirstOrDefault(m => m.Code == cstmr.BusinessMainClassCode)?.Id,
+                        .ContractName;
+
+                    return new
+                    {
+                        Code = $"{cstmr.ContractCode}-{cstmr.BusinessMainClassCode}-{cstmr.AgentCode}",
+                        Name = $"{cstmr.ContractCode}-{cstmr.BusinessMainClassCode}-{cstmr.AgentCode}: {contractName}",
+                        Name2 = $"{cstmr.ContractCode}-{cstmr.BusinessMainClassCode}-{cstmr.AgentCode}: {contractName}",
+                        Agent1Id = insuranceAgents.FirstOrDefault(ia => ia.Code == cstmr.AgentCode)?.Id,
+                        Agent2Id = contractsResult.FirstOrDefault(c => c.Code == cstmr.ContractCode)?.Id,
+                        Lookup2Id = mainBusinessResult.FirstOrDefault(m => m.Code == cstmr.BusinessMainClassCode)?.Id,
+                    };
                 })
                 .Distinct()
                 .Select(cstmr => new Agent
@@ -327,7 +326,6 @@ namespace Tellma.InsuranceImporter
                 .ToList();
 
             var customerAccResult = await _service.SyncAgents(tenantId, TellmaEntityCode.TradeReceivableAccount.AsString(), dbCustomerAccounts, cancellationToken);
-
 
             var mappingAccounts = await mappingAccountsTask;
 
@@ -396,11 +394,19 @@ namespace Tellma.InsuranceImporter
             // Noted date can't be in the far future
             var maxAllowedNotedDate = DateTime.Now.AddYears(10);
             var farFutureNotedDateWorks = tenantWorks.Where(w => w.NotedDate >= maxAllowedNotedDate && (w.AHasNotedDate || w.BHasNotedDate)).Select(w => w.NotedDate).Distinct().ToList();
-            RemoveIf(ref tenantWorks, w => w.NotedDate >= maxAllowedNotedDate && (w.AHasNotedDate || w.BHasNotedDate), $"have a noted date [{string.Join(", ", farFutureNotedDateWorks.Select(d => d.ToString("yyyy-MMM-dd")))}] in the far future for technicals");
+            
+            if (farFutureNotedDateWorks.Any())
+                _logger.LogWarning("Validation Warning: ({Count}) WorksheetIds [{Ids}] have noted dates [{Dates}] in the far future (>= {MaxDate:yyyy-MM-dd}). Setting noted date to null for these technicals.",
+                    farFutureNotedDateWorks.Count,
+                    string.Join(", ", tenantWorks.Where(w => w.NotedDate >= maxAllowedNotedDate && (w.AHasNotedDate || w.BHasNotedDate)).Select(w => w.WorksheetId).Distinct()),
+                    string.Join(", ", farFutureNotedDateWorks.Select(d => d.ToString("yyyy-MMM-dd"))),
+                    maxAllowedNotedDate);
+
+            //RemoveIf(ref tenantWorks, w => w.NotedDate >= maxAllowedNotedDate && (w.AHasNotedDate || w.BHasNotedDate), $"have a noted date [{string.Join(", ", farFutureNotedDateWorks.Select(d => d.ToString("yyyy-MMM-dd")))}] in the far future for technicals");
 
             if (!tenantWorks.Any())
             {
-                _logger.LogWarning("No new technical records to sync for tenant {Tenant}", tenantCode);
+                _logger.LogInformation("Success! Technical is up to date for tenant {Tenant}!", tenantCode);
                 return;
             }
 
@@ -522,7 +528,7 @@ namespace Tellma.InsuranceImporter
                 {
                     document = new DocumentForSave
                     {
-                        Id = technical?.TellmaDocumentId ??0,
+                        Id = technical?.TellmaDocumentId ?? 0,
                         SerialNumber = serialNumber,
                         PostingDate = technical?.PostingDate.AddDays(1 - technical.PostingDate.Day),
                         PostingDateIsCommon = true,
@@ -623,7 +629,7 @@ namespace Tellma.InsuranceImporter
             RemoveIf(ref valid, w => string.IsNullOrWhiteSpace(w.ContractName), "Technical worksheet must have valid contract name!");
             RemoveIf(ref valid, w => string.IsNullOrWhiteSpace(w.BusinessTypeCode), "Technical worksheet must have valid business type!");
             RemoveIf(ref valid, w => string.IsNullOrWhiteSpace(w.BusinessMainClassCode), "Technical worksheet must have valid business main class!");
-            RemoveIf(ref valid, w => Math.Abs(w.Direction) != 1, $"Technical worksheet must have valid direction [{string.Join(", ", valid.Where(w => Math.Abs(w.Direction) != 1).Select(w => w.Direction).Distinct())}], must be either 1 or -1.");
+            RemoveIf(ref valid, w => Math.Abs(w.Direction) != 1 && w.ContractAmount != 0 && w.ValueFc2 != 0, $"Technical worksheet must have valid direction [{string.Join(", ", valid.Where(w => Math.Abs(w.Direction) != 1 && w.ContractAmount != 0 && w.ValueFc2 != 0).Select(w => w.Direction).Distinct())}], must be either 1 or -1.");
 
             // Keep only worksheets with supported prefixes
             var supportedPrefixes = (_options.CurrentValue.TechnicalSupportedPrefixes ?? "TW,CW")

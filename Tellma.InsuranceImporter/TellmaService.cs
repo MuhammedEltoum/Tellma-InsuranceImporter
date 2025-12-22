@@ -168,10 +168,6 @@ namespace Tellma.InsuranceImporter
                 {
                     if (isBusinessPartnerAgent)
                     {
-                        var x = agentsResult.First(agentsResult => agentsResult.Agent1Id == dbAgent.Agent1Id
-                            && agentsResult.Agent2Id == dbAgent.Agent2Id
-                            && agentsResult.Lookup1Id == dbAgent.Lookup1Id);
-
                         dbAgentsCopy = dbAgentsCopy.Where(a => !(a.Agent1Id == dbAgent.Agent1Id
                                                             && a.Lookup1Id == dbAgent.Lookup1Id)).ToList();
                     }
@@ -480,11 +476,27 @@ namespace Tellma.InsuranceImporter
         {
             var newDocuments = new List<Document>();
             var tellmaClient = _client.Application(tenantId);
+
+            // Remove entries with no value or monetary value
+            foreach (var doc in documents)
+            {
+                doc.Lines[0].Entries = doc.Lines[0].Entries // Assuming single line documents
+                    .Where(e => e.Value != 0 || e.MonetaryValue != 0)
+                    .ToList();
+            }
+
             try
             {
-                var x = await tellmaClient
-                .Documents(documentDefinitionId)
-                .Save(documents);
+                // Save documents in batches of 1000
+                int batchSize = 1000;
+                var documentBatches = documents.Chunk(batchSize);
+
+                foreach (var batch in documentBatches)
+                {
+                    await tellmaClient
+                        .Documents(documentDefinitionId)
+                        .Save(batch.ToList());
+                }
 
                 _logger.LogInformation("Documents created!");
 
@@ -538,10 +550,17 @@ namespace Tellma.InsuranceImporter
 
             try
             {
-                await applicationClient
-                    .Documents(documentDefinitionId)
-                    .Close(documentIds);
-               _logger.LogInformation("Documents closed!");
+                // Close documents in batches of 1000
+                int batchSize = 1000;
+                var documentBatches = documentIds.Chunk(batchSize);
+
+                foreach (var batch in documentBatches)
+                {
+                    await applicationClient
+                        .Documents(documentDefinitionId)
+                        .Close(documentIds);
+                }
+                   _logger.LogInformation("Documents closed!");
             }
             catch (Exception ex)
             {

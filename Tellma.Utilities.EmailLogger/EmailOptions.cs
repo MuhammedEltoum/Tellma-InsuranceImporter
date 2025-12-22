@@ -14,5 +14,8 @@
         public string? ReportEmailAddresses { get; set; }
         public bool EnableDetailedReports { get; set; }
         public string[]? ReportLogLevels { get; set; }
+
+        // Google gemini specific
+        public string? GoogleGeminiApiKey { get; set; }
     }
 }

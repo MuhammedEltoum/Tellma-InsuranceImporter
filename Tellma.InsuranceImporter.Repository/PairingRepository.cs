@@ -14,7 +14,7 @@ namespace Tellma.InsuranceImporter.Repository
             throw new NotImplementedException();
         }
 
-        public async Task<List<Pairing>> GetWorksheets(bool includeImported, string filter, CancellationToken token)
+        public async Task<List<Pairing>> GetWorksheets(string filter, CancellationToken token)
         {
             var pairingsList = new List<Pairing>();
 
@@ -64,7 +64,7 @@ namespace Tellma.InsuranceImporter.Repository
             "left join Technicals t on (p.TECH_WS_ID = t.WORKSHEET_ID AND p.Bal2_OBJECT_ID = t.BAL_OBJECT_ID) OR (p.REMIT_WS_ID = t.WORKSHEET_ID AND p.Bal1_OBJECT_ID = t.BAL_OBJECT_ID) " +
             "left join Remittances r on (p.REMIT_WS_ID = r.WORKSHEET_ID AND p.Bal1_OBJECT_ID = r.BAL_OBJECT_ID) OR (p.TECH_WS_ID = r.WORKSHEET_ID AND p.Bal2_OBJECT_ID = r.BAL_OBJECT_ID) " +
             "left join Tellma_Mapping_Technical tmt on t.[ACCOUNT_CODE] = tmt.[SICS_Account] AND t.[IS_INWARD] = tmt.[IS_INWARD] " +
-            "WHERE 1=1 AND t.[IMPORT_DATE] IS NOT NULL AND r.[IMPORT_DATE] IS NOT NULL AND (tmt.CanBePairing = 1 OR tmt.[B Account] is null) " + filter + " " + (includeImported ? " " : " AND p.[TRANSFER_TO_TELLMA] = N'N' ") +
+            $"WHERE {filter ?? "1=1"}" +
             "group by p.[PK]" +
                 ",[PAIRING_DATE]" +
                 ",[TECH_WS_ID]" +

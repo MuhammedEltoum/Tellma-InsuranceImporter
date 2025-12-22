@@ -25,10 +25,10 @@ namespace Tellma.InsuranceImporter
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            string filter = $" AND TENANT_CODE = '{tenantCode}'";
+            string filter = $"[IMPORT_DATE] IS NULL AND [TENANT_CODE] = '{tenantCode}'";
             try
             {
-                var allWorksheets = await _repository.GetWorksheets(false, filter, cancellationToken);
+                var allWorksheets = await _repository.GetWorksheets(filter, cancellationToken);
                 await ProcessTenant(tenantCode, allWorksheets, cancellationToken);
             }
             catch (OperationCanceledException)
@@ -46,7 +46,7 @@ namespace Tellma.InsuranceImporter
         {
             if (!validRemittanceList.Any())
             {
-                _logger.LogWarning("No worksheets for tenant {TenantCode}", tenantCode);
+                _logger.LogInformation("Sucess! Remittance is up to date for tenant {TenantCode}!", tenantCode);
                 return;
             }
 
@@ -142,12 +142,11 @@ namespace Tellma.InsuranceImporter
 
             validRemittanceList = MapRemittanceAccounts(validRemittanceList, mappingAccounts);
 
-
             validRemittanceList = ValidateWorksheets(validRemittanceList);
 
             if (!validRemittanceList.Any())
             {
-                _logger.LogWarning("No new Remittance records to sync for tenant {Tenant}", tenantCode);
+                _logger.LogInformation("Sucess! Remittance is up to date for tenant {TenantCode}!", tenantCode);
                 return;
             }
 
@@ -190,7 +189,7 @@ namespace Tellma.InsuranceImporter
 
             if (!validRemittanceList.Any())
             {
-                _logger.LogWarning("No valid remittances records for tenant {tenantCode}!", tenantCode);
+                _logger.LogInformation("Sucess! Remittance is up to date for tenant {TenantCode}!", tenantCode);
                 return;
             }
 
@@ -234,9 +233,9 @@ namespace Tellma.InsuranceImporter
             // Build documents
             foreach (var remittance in validRemittanceList)
             {
-                if (validRemittanceList.Count() == 0)
+                if (!validRemittanceList.Any())
                 {
-                    _logger.LogWarning($"No valid remittances records for tenant {tenantCode}!");
+                    _logger.LogInformation("Sucess! Remittance is up to date for tenant {TenantCode}!", tenantCode);
                     return;
                 }
                 int insuranceAgentId = insuranceAgents.FirstOrDefault(ia => ia.Code == remittance.AgentCode)?.Id ?? 0;
@@ -416,7 +415,7 @@ namespace Tellma.InsuranceImporter
 
             RemoveIf(ref valid, w => string.IsNullOrWhiteSpace(w.AgentCode), "have an invalid insurance agent");
             RemoveIf(ref valid, w => w.ValueFC2 == 0, "have zero functional value");
-            RemoveIf(ref valid, w => Math.Abs(w.Direction) != 1, $"Technical worksheet must have valid direction [{string.Join(", ", valid.Where(w => Math.Abs(w.Direction) != 1).Select(w => w.Direction).Distinct())}], must be either 1 or -1.");
+            RemoveIf(ref valid, w => Math.Abs(w.Direction) != 1 && w.ValueFC2 != 0 && w.TransferAmount != 0, $"Worksheet must have valid direction [{string.Join(", ", valid.Where(w => Math.Abs(w.Direction) != 1 && w.ValueFC2 != 0 && w.TransferAmount != 0).Select(w => w.Direction).Distinct())}], must be either 1 or -1.");
 
             // Keep only worksheets with supported prefixes
             var supportedPrefixes = (_options.CurrentValue.RemittanceSupportedPrefixes ?? "RW")

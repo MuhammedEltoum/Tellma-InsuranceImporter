@@ -77,3 +77,11 @@ D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.WindowsSer
 D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.WindowsService\obj\Debug\net10.0\Tellma.InsuranceImporter.WindowsService.pdb
 D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.WindowsService\obj\Debug\net10.0\Tellma.InsuranceImporter.WindowsService.genruntimeconfig.cache
 D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.WindowsService\obj\Debug\net10.0\ref\Tellma.InsuranceImporter.WindowsService.dll
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.WindowsService\bin\Debug\net10.0\Google.Apis.dll
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.WindowsService\bin\Debug\net10.0\Google.Apis.Auth.dll
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.WindowsService\bin\Debug\net10.0\Google.Apis.Core.dll
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.WindowsService\bin\Debug\net10.0\Google.GenAI.dll
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.WindowsService\bin\Debug\net10.0\Newtonsoft.Json.dll
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.WindowsService\bin\Debug\net10.0\System.CodeDom.dll
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.WindowsService\bin\Debug\net10.0\System.Management.dll
+D:\Projects\BananIT\Tellma-InsuranceImporter\Tellma.InsuranceImporter.WindowsService\bin\Debug\net10.0\runtimes\win\lib\net7.0\System.Management.dll

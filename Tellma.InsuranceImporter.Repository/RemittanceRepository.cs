@@ -8,7 +8,7 @@ namespace Tellma.InsuranceImporter.Repository
     {
         public RemittanceRepository(IOptions<InsuranceDBOptions> dbOptions) : base(dbOptions.Value.ConnectionString) { }
 
-        public async Task<List<Remittance>> GetWorksheets(bool includeImported, string filter, CancellationToken token)
+        public async Task<List<Remittance>> GetWorksheets(string filter, CancellationToken token)
         {
             List<Remittance> remittancesList = new List<Remittance>();
             string selectQuery = "SELECT [PK], " +
@@ -33,7 +33,7 @@ namespace Tellma.InsuranceImporter.Repository
                                     "[BAL_OBJECT_ID], " +
                                     "[TRANSFER_TO_TELLMA] " +
                                 "FROM [Remittances] " +
-                                "WHERE 1=1 " + filter + " " + (includeImported ? " " : " AND [TRANSFER_TO_TELLMA] = N'N' ");
+                                "WHERE " + filter ?? "1=1";
             
             using (var reader = await ExecuteReaderAsync(selectQuery))
             {

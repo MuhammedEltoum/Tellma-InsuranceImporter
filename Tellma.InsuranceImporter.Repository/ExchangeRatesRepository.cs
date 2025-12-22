@@ -27,7 +27,7 @@ namespace Tellma.InsuranceImporter.Repository
                         CurrencyId = reader.GetString(0),
                         ValidAsOf = reader.GetDateTime(1),
                         AmountInCurrency = Math.Round(1 / reader.GetDecimal(2), 6),
-                        AmountInFunctional = 1
+                        AmountInFunctional = 1.000000m
                     });
                 }
             }

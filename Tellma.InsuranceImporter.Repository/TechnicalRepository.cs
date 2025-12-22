@@ -2,6 +2,7 @@
 using System;
 using System.Data;
 using System.Security.Principal;
+using System.Threading.Tasks.Dataflow;
 using Tellma.InsuranceImporter.Contract;
 using static System.Net.Mime.MediaTypeNames;
 
@@ -51,7 +52,7 @@ namespace Tellma.InsuranceImporter.Repository
             return technicalsList;
         }
 
-        public async Task<List<Technical>> GetWorksheets(bool includeImported, string filter, CancellationToken token)
+        public async Task<List<Technical>> GetWorksheets(string filter, CancellationToken token)
         {
             List<Technical> technicalsList = new List<Technical>();
             string selectQuery = "SELECT [PK], " +
@@ -94,7 +95,7 @@ namespace Tellma.InsuranceImporter.Repository
                                   "[D_OBJECT_ID], " +
                                   "[TRANSFER_TO_TELLMA] " +
                               "FROM [dbo].[Technicals] " +
-                              "WHERE 1=1 " + filter + " " + (includeImported ? " " : " AND [TRANSFER_TO_TELLMA] = N'N' ");
+                              $"WHERE {filter ?? "1=1"}";
             using (var reader = await ExecuteReaderAsync(selectQuery))
             {
                 while (await reader.ReadAsync())
@@ -160,7 +161,11 @@ namespace Tellma.InsuranceImporter.Repository
                 query.Add(updateStatement);
             }
 
-            await ExecuteNonQueryAsync(string.Join(" ", query));
+            int batchSize = 1000;
+            var queryBatch = query.Chunk(batchSize);
+
+            foreach (var batch in queryBatch)
+                await ExecuteNonQueryAsync(string.Join(" ", batch.ToList()));
         }
 
         public async Task UpdateImportedWorksheets(string tenantCode, IEnumerable<Technical> worksheets, CancellationToken token)
@@ -177,7 +182,12 @@ namespace Tellma.InsuranceImporter.Repository
                                       $"WHERE TENANT_CODE = '{tenantCode}' AND WORKSHEET_ID = '{technical.WorksheetId}';";
                 query.Add(updateStatement);
             }
-            await ExecuteNonQueryAsync(string.Join(" ", query));
+
+            int batchSize = 1000;
+            var queryBatch = query.Chunk(batchSize);
+
+            foreach (var batch in queryBatch)
+                await ExecuteNonQueryAsync(string.Join(" ", batch.ToList()));
         }
     }
 }
