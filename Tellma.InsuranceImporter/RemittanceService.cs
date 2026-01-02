@@ -12,13 +12,15 @@ namespace Tellma.InsuranceImporter
         private readonly ITellmaService _service;
         private readonly IWorksheetRepository<Remittance> _repository;
         private readonly ILogger<RemittanceService> _logger;
-        private readonly IOptionsMonitor<InsuranceOptions> _options;
-        public RemittanceService(ITellmaService service, IWorksheetRepository<Remittance> repository, ILogger<RemittanceService> logger, IOptionsMonitor<InsuranceOptions> options)
+        private readonly IOptionsMonitor<InsuranceOptions> _insuranceOptions;
+        private readonly IOptions<TellmaOptions> _tellmaOptions;
+        public RemittanceService(ITellmaService service, IWorksheetRepository<Remittance> repository, ILogger<RemittanceService> logger, IOptionsMonitor<InsuranceOptions> insuranceOptions, IOptions<TellmaOptions> tellmaOptions)
         {
             _service = service ?? throw new ArgumentNullException(nameof(service));
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _options = options ?? throw new ArgumentNullException(nameof(options));
+            _insuranceOptions = insuranceOptions ?? throw new ArgumentNullException(nameof(insuranceOptions));
+            _tellmaOptions = tellmaOptions ?? throw new ArgumentNullException(nameof(tellmaOptions));
         }
         
         public async Task Import(string tenantCode, CancellationToken cancellationToken)
@@ -51,7 +53,7 @@ namespace Tellma.InsuranceImporter
             }
 
             var mappingAccountsTask = _repository.GetMappingAccounts(cancellationToken);
-            var tenantId = InsuranceHelper.GetTenantId(tenantCode);
+            var tenantId = InsuranceHelper.GetTenantId(tenantCode, _tellmaOptions.Value.Tenants);
 
             var tenantProfile = await _service.GetTenantProfile(tenantId, cancellationToken);
 
@@ -418,7 +420,7 @@ namespace Tellma.InsuranceImporter
             RemoveIf(ref valid, w => Math.Abs(w.Direction) != 1 && w.ValueFC2 != 0 && w.TransferAmount != 0, $"Worksheet must have valid direction [{string.Join(", ", valid.Where(w => Math.Abs(w.Direction) != 1 && w.ValueFC2 != 0 && w.TransferAmount != 0).Select(w => w.Direction).Distinct())}], must be either 1 or -1.");
 
             // Keep only worksheets with supported prefixes
-            var supportedPrefixes = (_options.CurrentValue.RemittanceSupportedPrefixes ?? "RW")
+            var supportedPrefixes = (_insuranceOptions.CurrentValue.RemittanceSupportedPrefixes ?? "RW")
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .ToList();
 

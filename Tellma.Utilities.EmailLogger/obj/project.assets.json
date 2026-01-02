@@ -1071,11 +1071,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.Utilities.EmailLogger\\Tellma.Utilities.EmailLogger.csproj",
+      "projectUniqueName": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.Utilities.EmailLogger\\Tellma.Utilities.EmailLogger.csproj",
       "projectName": "Tellma.Utilities.EmailLogger",
-      "projectPath": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.Utilities.EmailLogger\\Tellma.Utilities.EmailLogger.csproj",
+      "projectPath": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.Utilities.EmailLogger\\Tellma.Utilities.EmailLogger.csproj",
       "packagesPath": "C:\\Users\\muham\\.nuget\\packages\\",
-      "outputPath": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.Utilities.EmailLogger\\obj\\",
+      "outputPath": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.Utilities.EmailLogger\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

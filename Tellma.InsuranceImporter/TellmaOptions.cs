@@ -5,6 +5,6 @@
         public string? ClientId { get; set; }
         public string? ClientSecret { get; set; }
         public string? TenantCodes { get; set; }
-        public string? ExchangeRatesKey { get; set; }
+        public Dictionary<string, string> Tenants { get; set; }
     }
 }

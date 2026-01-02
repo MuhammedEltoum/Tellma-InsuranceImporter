@@ -7,7 +7,6 @@ using System.Threading;
 using Google.GenAI;
 using Google.GenAI.Types;
 
-
 namespace Tellma.Utilities.EmailLogger
 {
     public class EmailLogger : ILogger
@@ -18,12 +17,18 @@ namespace Tellma.Utilities.EmailLogger
         private readonly List<LogEntry> _logEntries = new();
         private readonly object _lock = new object();
 
+        // Retry configuration
+        private const int MaxRetryAttempts = 5;
+        private readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);
+        private readonly Random _random = new Random();
+
         public EmailLogger(IOptions<EmailOptions> options)
         {
             _options = options.Value;
             _emails = (_options.EmailAddresses ?? "").Split(",").Select(s => s.Trim()).ToList();
             _reportEmails = (_options.ReportEmailAddresses ?? "").Split(",").Select(s => s.Trim()).ToList();
         }
+
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull
         {
             return null;
@@ -56,6 +61,7 @@ namespace Tellma.Utilities.EmailLogger
 
             if (exception == null) return;
             if (!IsEnabled(logLevel)) return;
+
             try
             {
                 var message = new MimeMessage();
@@ -74,19 +80,12 @@ namespace Tellma.Utilities.EmailLogger
 {exception}"
                 };
 
-                using var client = new SmtpClient();
-                client.Connect(_options.SmtpHost, _options.SmtpPort ?? 587, _options.SmtpUseSsl);
-
-                // Note: only needed if the SMTP server requires authentication
-                if (!string.IsNullOrWhiteSpace(_options.SmtpUsername))
-                    client.Authenticate(_options.SmtpUsername, _options.SmtpPassword);
-
-                client.Send(message);
-                client.Disconnect(true);
+                // Send with retry logic
+                ExecuteWithRetry(() => SendEmail(message));
             }
             catch (Exception e)
             {
-                Console.WriteLine("Failed to send log email.", e);
+                Console.WriteLine("Failed to send log email after all retry attempts.", e);
             }
         }
 
@@ -112,8 +111,6 @@ namespace Tellma.Utilities.EmailLogger
 
                     reportMessage.Subject = $"{_options.InstallationIdentifier ?? "Unknown"}: {reportTitle} - {DateTime.Now:yyyy-MM-dd HH:mm:ss}";
 
-                    Console.WriteLine("Starting email process...");
-
                     var reportText = GenerateReportText();
                     var reportHtml = String.IsNullOrWhiteSpace(_options.GoogleGeminiApiKey) ? GenerateReportHtml(reportTitle) : Task.Run(() => GenerateAIDashboardReport()).Result;
 
@@ -122,25 +119,103 @@ namespace Tellma.Utilities.EmailLogger
                     bodyBuilder.HtmlBody = reportHtml;
 
                     reportMessage.Body = bodyBuilder.ToMessageBody();
-                    
-                    using var client = new SmtpClient();
-                    client.Connect(_options.SmtpHost, _options.SmtpPort ?? 587, _options.SmtpUseSsl);
 
-                    if (!string.IsNullOrWhiteSpace(_options.SmtpUsername))
-                        client.Authenticate(_options.SmtpUsername, _options.SmtpPassword);
+                    // Send with retry logic
+                    ExecuteWithRetry(() => SendEmail(reportMessage));
 
-                    client.Send(reportMessage);
-                    client.Disconnect(true);
-
-                    Console.WriteLine("Email sent successfuly!");
+                    Console.WriteLine("Email sent successfully!");
                     // Clear log entries after sending report
                     _logEntries.Clear();
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Failed to send activity report: {ex.Message}");
+                    Console.WriteLine($"Failed to send activity report after all retry attempts: {ex.Message}");
                 }
             }
+        }
+
+        /// <summary>
+        /// Executes an email sending operation with retry logic.
+        /// </summary>
+        private void ExecuteWithRetry(Action sendAction)
+        {
+            int attempt = 0;
+            while (true)
+            {
+                try
+                {
+                    sendAction();
+                    return; // Success - exit the retry loop
+                }
+                catch (Exception ex)
+                {
+                    attempt++;
+
+                    if (attempt >= MaxRetryAttempts)
+                    {
+                        throw new InvalidOperationException($"Failed to send email after {MaxRetryAttempts} attempts", ex);
+                    }
+
+                    // Log the retry attempt
+                    Console.WriteLine($"Email sending attempt {attempt} failed. Retrying in {RetryDelay.TotalSeconds} seconds. Error: {ex.Message}");
+
+                    // Wait before retry with exponential backoff and jitter
+                    var delay = CalculateDelay(attempt);
+                    Thread.Sleep(delay);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Sends a single email message.
+        /// </summary>
+        private void SendEmail(MimeMessage message)
+        {
+            using var client = new SmtpClient();
+
+            // Set a timeout for the SMTP operations
+            client.Timeout = 30000; // 30 seconds
+
+            try
+            {
+                // Connect with timeout
+                client.Connect(_options.SmtpHost, _options.SmtpPort ?? 587, _options.SmtpUseSsl);
+
+                // Note: only needed if the SMTP server requires authentication
+                if (!string.IsNullOrWhiteSpace(_options.SmtpUsername))
+                    client.Authenticate(_options.SmtpUsername, _options.SmtpPassword);
+
+                // Send the message
+                client.Send(message);
+                client.Disconnect(true);
+            }
+            catch
+            {
+                // Ensure client is disconnected on failure
+                if (client.IsConnected)
+                {
+                    try { client.Disconnect(true); } catch { }
+                }
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Calculates delay with exponential backoff and jitter.
+        /// </summary>
+        private TimeSpan CalculateDelay(int attempt)
+        {
+            // Exponential backoff: 2^attempt * base delay
+            double exponentialDelay = Math.Pow(2, attempt - 1) * RetryDelay.TotalSeconds;
+
+            // Add jitter (±25%) to avoid thundering herd
+            double jitter = (_random.NextDouble() * 0.5 - 0.25) * exponentialDelay;
+            double totalDelay = exponentialDelay + jitter;
+
+            // Cap at 30 seconds maximum delay
+            totalDelay = Math.Min(totalDelay, 30);
+
+            return TimeSpan.FromSeconds(totalDelay);
         }
 
         private string GenerateReportText()
@@ -192,12 +267,7 @@ namespace Tellma.Utilities.EmailLogger
         <p><strong>Total Entries:</strong> {_logEntries.Count}</p>
     </div>
 <br>
-<div class='header' style='{(string.IsNullOrWhiteSpace(_options.GoogleGeminiApiKey) ? "display: none;" : String.Empty)}'>
-        <p>
-<strong>AI Summary</strong><br>
-{(string.IsNullOrWhiteSpace(_options.GoogleGeminiApiKey) ? String.Empty : Task.Run(() => GenerateAISummaryReport()).Result)}
-</p>
-    </div>
+
 ");
 
             foreach (var entry in CleanLogEntries(_logEntries))
@@ -262,7 +332,7 @@ namespace Tellma.Utilities.EmailLogger
         {
             string[] excludePrefix = new string[]
             {
-                "Application started. Press Ctrl+C to shut down.",
+                "Application started",
                 "Hosting environment:",
                 "Content root path: "
             };
@@ -272,95 +342,22 @@ namespace Tellma.Utilities.EmailLogger
                 .ToList();
         }
 
-        private async Task<string> GenerateAISummaryReport()
-        {
-            if (string.IsNullOrWhiteSpace(_options.GoogleGeminiApiKey))
-            {
-                return string.Empty;
-                //throw new InvalidOperationException("Google Gemini API key is not configured.");
-            }
-
-            // 1. Efficiently build the prompt
-            var sb = new StringBuilder();
-            sb.AppendLine("Summarize the following technical logs into a concise executive report inside a single <p></p> (max 1500 chars).");
-            sb.AppendLine("Focus on: Success counts, critical warnings, and worksheets outliers.");
-            sb.AppendLine("Logs:");
-
-            foreach (var entry in _logEntries)
-            {
-                sb.AppendLine($"{entry.Timestamp:HH:mm:ss} [{entry.Level}] {entry.Message}");
-            }
-
-            try
-            {
-                // 2. Initialize the client
-                var client = new Client(apiKey: _options.GoogleGeminiApiKey);
-
-                //string prompt = $@"
-                //                Act as a UI/UX Designer. Convert these technical logs into a high-end, executive HTML dashboard widget.
-    
-                //                STYLE RULES:
-                //                1. Container: Use a max-width of 600px, border-radius 12px, box-shadow, and a subtle light-blue background (#fcfdfe).
-                //                2. Header: Create a modern header with a dark blue (#1a202c) background and white text.
-                //                3. Metrics Row: Show 'Total Documents' and 'Status' as side-by-side 'cards' with large bold numbers.
-                //                4. Data Table: For Warnings, use a clean <table> with subtle zebra-striping and a 'Pill Badge' (rounded background) for the percentage values.
-                //                5. Warnings: Use a soft-red background (#fff5f5) and a thick left border for critical errors.
-    
-                //                TECHNICAL RULES:
-                //                - Use ONLY inline CSS.
-                //                - Return ONLY the <div>. No markdown backticks (```html), no <html> tags.
-                //                - Use 'Segoe UI', Roboto, or Helvetica.
-    
-                //                LOG DATA:
-                //                {sb.ToString()}";
-
-                // 3. Request generation
-                var response = await client.Models.GenerateContentAsync(
-                    model: "gemini-2.5-flash-lite",
-                    contents: sb.ToString()
-                );
-
-                // 4. Navigate the official Google.GenAI response structure
-                // Candidates[0] -> Content -> Parts[0] -> Text
-                var candidate = response?.Candidates?.FirstOrDefault();
-
-                if (candidate?.Content?.Parts != null)
-                {
-                    // Join all parts in case the model returned multiple segments
-                    var resultText = string.Join("\n",
-                        candidate.Content.Parts.Select(p => p.Text));
-
-                    return !string.IsNullOrWhiteSpace(resultText)
-                        ? resultText
-                        : "The model returned an empty response.";
-                }
-
-                return "No summary candidate was generated.";
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-                return $"Error generating report: {ex.Message}";
-            }
-        }
         private async Task<string> GenerateAIDashboardReport()
         {
             if (string.IsNullOrWhiteSpace(_options.GoogleGeminiApiKey))
             {
                 return string.Empty;
-                //throw new InvalidOperationException("Google Gemini API key is not configured.");
             }
 
-            // 1. Efficiently build the prompt
-            var sb = new StringBuilder();
-            foreach (var entry in _logEntries)
+            // Generate report with retry logic
+            return await ExecuteWithRetryAsync(async () =>
             {
-                sb.AppendLine($"{entry.Timestamp:HH:mm:ss} [{entry.Level}] {entry.Message}");
-            }
+                var sb = new StringBuilder();
+                foreach (var entry in CleanLogEntries(_logEntries))
+                {
+                    sb.AppendLine($"{entry.Timestamp:HH:mm:ss} [{entry.Level}] {entry.Message}");
+                }
 
-            try
-            {
-                // 2. Initialize the client
                 var client = new Client(apiKey: _options.GoogleGeminiApiKey);
 
                 string prompt = $@"
@@ -370,7 +367,7 @@ Task: I will provide you with Server Logs. You must output a single HTML file ba
 
 Instructions:
 
-Analyze the Logs: Calculate the total time, identify the status of the 4 sections (Exchange, Remittance, Technical, Pairing), and summarize the specific errors/warnings.
+Analyze the Logs: Calculate the total time, identify the status of the 4 sections (Exchange, Remittance, Technical, Pairing), and summarize the specific errors/warnings. Keep the summary and messages concise and professional and of similar structure for all Remittance, Technical, and Pairing.
 
 Fill the Template: Replace the content inside the HTML tags with the data from the logs.
 
@@ -461,8 +458,9 @@ HTML
                 <div style=""font-size: 13px; color: #555;"">
                      [INSERT SUMMARY]
                 </div>
-                <div class=""issue-list [ADD CLASS]"">
-                    <div class=""issue-item"">[INSERT SUMMARY 1]</div>
+                 <div class=""issue-list [ADD CLASS]"">
+                    <div class=""issue-item"">[INSERT SUMMARY]</div>
+                    <div class=""issue-item"">[DETAILS]</div>
                 </div>
             </div>
 
@@ -475,7 +473,8 @@ HTML
                      [INSERT SUMMARY]
                 </div>
                  <div class=""issue-list [ADD CLASS]"">
-                    <div class=""issue-item""><strong>[LOG TYPE]:</strong> [DETAILS]</div>
+                    <div class=""issue-item"">[INSERT SUMMARY]</div>
+                    <div class=""issue-item"">[DETAILS]</div>
                 </div>
             </div>
 
@@ -486,6 +485,7 @@ HTML
                 </div>
                  <div class=""issue-list [ADD CLASS]"">
                     <div class=""issue-item"">[INSERT SUMMARY]</div>
+                    <div class=""issue-item"">[DETAILS]</div>
                 </div>
             </div>
 
@@ -503,22 +503,15 @@ HTML
 </html>
 Logs: {sb.ToString()}";
 
-                //var models = await client.Models.ListAsync();
-
-                // 3. Request generation
                 var response = await client.Models.GenerateContentAsync(
-                    model: "gemini-2.5-flash",
+                    model: _options.Model ?? "gemini-2.5-flash",
                     contents: prompt
                 );
 
-
-                // 4. Navigate the official Google.GenAI response structure
-                // Candidates[0] -> Content -> Parts[0] -> Text
                 var candidate = response?.Candidates?.FirstOrDefault();
 
                 if (candidate?.Content?.Parts != null)
                 {
-                    // Join all parts in case the model returned multiple segments
                     var resultText = string.Join("\n",
                         candidate.Content.Parts.Select(p => p.Text));
 
@@ -529,16 +522,45 @@ Logs: {sb.ToString()}";
 
                     return !string.IsNullOrWhiteSpace(resultText)
                         ? resultText
-                        : "The model returned an empty response.";
+                        : GenerateReportHtml("Service Activity Report");
                 }
 
-                return "No summary candidate was generated.";
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error generating report: {ex.Message}" + ex.ToString());
                 return GenerateReportHtml("Service Activity Report");
+            });
+        }
+
+        /// <summary>
+        /// Executes an async operation with retry logic.
+        /// </summary>
+        private async Task<T> ExecuteWithRetryAsync<T>(Func<Task<T>> operation)
+        {
+            int attempt = 0;
+            while (true)
+            {
+                try
+                {
+                    return await operation();
+                }
+                catch (Exception ex)
+                {
+                    attempt++;
+
+                    if (attempt >= MaxRetryAttempts)
+                    {
+                        throw new InvalidOperationException($"Operation failed after {MaxRetryAttempts} attempts", ex);
+                    }
+
+                    Console.WriteLine($"Operation attempt {attempt} failed. Retrying in {RetryDelay.TotalSeconds} seconds. Error: {ex.Message}");
+
+                    var delay = CalculateDelay(attempt);
+                    await Task.Delay(delay);
+                }
             }
+        }
+
+        public void ClearLogs()
+        {
+            _logEntries.Clear();
         }
     }
 }

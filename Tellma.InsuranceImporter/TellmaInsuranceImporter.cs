@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Options;
 using System.Diagnostics;
 using Tellma.InsuranceImporter.Contract;
+using Tellma.InsuranceImporter.Repository;
 using Tellma.Utilities.EmailLogger;
 
 namespace Tellma.InsuranceImporter
@@ -9,6 +10,7 @@ namespace Tellma.InsuranceImporter
     public class TellmaInsuranceImporter
     {
         private readonly IOptions<TellmaOptions> _options;
+        private readonly IOptions<InsuranceDBOptions> _dbOptions;
         private readonly IOptionsMonitor<InsuranceOptions> _insuranceOptions;
         private readonly ILogger<TellmaInsuranceImporter> _logger;
         private readonly IImportService<Remittance> _remittanceService;
@@ -26,6 +28,7 @@ namespace Tellma.InsuranceImporter
             IImportService<Pairing> pairingService,
             IImportService<Contract.ExchangeRate> exchangeRateService,
             IOptions<TellmaOptions> options,
+            IOptions<InsuranceDBOptions> dbOptions,
             IOptionsMonitor<InsuranceOptions> insuranceOptions)
         {
             _logger = logger;
@@ -35,6 +38,7 @@ namespace Tellma.InsuranceImporter
             _pairingService = pairingService;
             _exchangeRateService = exchangeRateService;
             _options = options;
+            _dbOptions = dbOptions;
             _insuranceOptions = insuranceOptions;
 
             // Simplified Parsing logic
@@ -56,14 +60,19 @@ namespace Tellma.InsuranceImporter
             {
                 try
                 {
-                    _logger.LogInformation("Starting full import process for tenant {TenantCode}", tenantCode);
+                    var startIndex = _dbOptions.Value.ConnectionString.IndexOf("Server=", StringComparison.OrdinalIgnoreCase);
+                    var endIndex = _dbOptions.Value.ConnectionString.IndexOf(";Database", StringComparison.OrdinalIgnoreCase);
+                    _logger.LogInformation("Starting full import process for tenant {TenantCode} at {DateTime} from {Server}", 
+                        tenantCode, 
+                        DateTime.Now,
+                        _dbOptions.Value.ConnectionString.Substring(startIndex, endIndex - startIndex));
 
                     await RunImportStepAsync(_insuranceOptions.CurrentValue.EnableExchangeRate, _exchangeRateService, tenantCode, "Exchange Rates", stoppingToken);
                     await RunImportStepAsync(_insuranceOptions.CurrentValue.EnableRemittance, _remittanceService, tenantCode, "Remittances", stoppingToken);
                     await RunImportStepAsync(_insuranceOptions.CurrentValue.EnableTechnical, _technicalService, tenantCode, "Technical Data", stoppingToken);
                     await RunImportStepAsync(_insuranceOptions.CurrentValue.EnablePairing, _pairingService, tenantCode, "Pairing", stoppingToken);
 
-                    _logger.LogInformation("Finished import for tenant {TenantCode}", tenantCode);
+                    _logger.LogInformation("Finished import for tenant {TenantCode} at {DateTime}", tenantCode, DateTime.Now);
 
                     _emailLogger.SendActivityReport($"Tellma insurance importer report for {tenantCode}");
                 }

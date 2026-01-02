@@ -7,7 +7,7 @@ using Tellma.Utilities.EmailLogger;
 IHost host = Host.CreateDefaultBuilder(args)
     .UseWindowsService(config =>
     {
-        config.ServiceName = "Tellma Attendance Importer";
+        config.ServiceName = "Tellma Insurance Importer";
     })
     .ConfigureServices((hostContext, services) =>
     {
@@ -15,8 +15,8 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.Configure<ImporterOptions>(hostContext.Configuration);
         services.Configure<InsuranceDBOptions>(hostContext.Configuration.GetSection("InsuranceDB"));
         services.Configure<TellmaOptions>(hostContext.Configuration.GetSection("Tellma"));
-        services.Configure<EmailOptions>(hostContext.Configuration.GetSection("Email"));
         services.Configure<InsuranceOptions>(hostContext.Configuration.GetSection("Insurance"));
+        services.Configure<EmailOptions>(hostContext.Configuration.GetSection("Email"));
         services.AddSingleton<EmailLogger>();
         services.AddScoped<IExchangeRatesRepository, ExchangeRatesRepository>();
         services.AddScoped<IWorksheetRepository<Remittance>, RemittanceRepository>();
@@ -31,6 +31,18 @@ IHost host = Host.CreateDefaultBuilder(args)
     })
     .ConfigureLogging((hostContext, loggingBuilder) =>
     {
+        // Clear default providers if needed
+        loggingBuilder.ClearProviders();
+
+        // Add EventLog with proper configuration
+        loggingBuilder.AddEventLog(eventLogSettings =>
+        {
+            eventLogSettings.SourceName = "Tellma Insurance Importer";
+            eventLogSettings.LogName = "Application";
+            // Optional: Filter by log level
+            eventLogSettings.Filter = (source, level) =>
+                level >= LogLevel.Information; // Adjust as needed
+        });
         loggingBuilder.AddDebug();
         loggingBuilder.AddEmail(hostContext.Configuration);
     })

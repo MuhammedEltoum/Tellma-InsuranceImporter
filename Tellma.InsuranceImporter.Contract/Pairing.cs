@@ -26,6 +26,8 @@
         public string TenantCode2 { get; set; } = String.Empty;
         public string TenantName2 { get; set; } = String.Empty;
         public string ContractCode { get; set; } = String.Empty;
+        public DateTime EffectiveDate { get; set; }
+        public DateTime ExpiryDate { get; set; }
         public string BrokerCode { get; set; } = String.Empty;
         public short RemitDirection { get; set; }
         public DateTime RemittancePaymentDate { get; set; }

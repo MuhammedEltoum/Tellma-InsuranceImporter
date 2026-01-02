@@ -1,0 +1,3 @@
+C:\Users\muham\source\repos\Tellma-InsuranceImporter\publish-010126\Tellma.InsuranceImporter.Contract.dll
+C:\Users\muham\source\repos\Tellma-InsuranceImporter\publish-010126\Tellma.InsuranceImporter.Contract.deps.json
+C:\Users\muham\source\repos\Tellma-InsuranceImporter\publish-010126\Tellma.InsuranceImporter.Contract.pdb

@@ -8,15 +8,16 @@ namespace Tellma.InsuranceImporter
 {
     public static class InsuranceHelper
     {
-        public static int GetTenantId(string tenantCode)
+        public static int GetTenantId(string tenantCode, Dictionary<string, string> tenants)
         {
-            return 1303;
-            //return tenantCode switch
-            //{
-            //    "IR1" => 601,
-            //    "IR160" => 602,
-            //    _ => 1303
-            //};
+            if (tenants.TryGetValue(tenantCode, out var tenantId))
+            {
+                return Convert.ToInt32(tenantId);
+            }
+
+            throw new InvalidOperationException(
+                $"Tenant code '{tenantCode}' is not configured. " +
+                $"Available tenants: {string.Join(", ", tenants.Keys)}");
         }
     }
 }

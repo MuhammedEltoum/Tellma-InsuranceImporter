@@ -478,11 +478,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.Repository\\Tellma.InsuranceImporter.Repository.csproj",
+      "projectUniqueName": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.Repository\\Tellma.InsuranceImporter.Repository.csproj",
       "projectName": "Tellma.InsuranceImporter.Repository",
-      "projectPath": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.Repository\\Tellma.InsuranceImporter.Repository.csproj",
+      "projectPath": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.Repository\\Tellma.InsuranceImporter.Repository.csproj",
       "packagesPath": "C:\\Users\\muham\\.nuget\\packages\\",
-      "outputPath": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.Repository\\obj\\",
+      "outputPath": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.Repository\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -503,8 +503,8 @@
         "net10.0": {
           "targetAlias": "net10.0",
           "projectReferences": {
-            "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.Contract\\Tellma.InsuranceImporter.Contract.csproj": {
-              "projectPath": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.Contract\\Tellma.InsuranceImporter.Contract.csproj"
+            "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.Contract\\Tellma.InsuranceImporter.Contract.csproj": {
+              "projectPath": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.Contract\\Tellma.InsuranceImporter.Contract.csproj"
             }
           }
         }

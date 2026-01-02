@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "O5UYuh2iA/o=",
+  "dgSpecHash": "N7VzDtIK4ck=",
   "success": true,
-  "projectFilePath": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.WindowsService\\Tellma.InsuranceImporter.WindowsService.csproj",
+  "projectFilePath": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.WindowsService\\Tellma.InsuranceImporter.WindowsService.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\muham\\.nuget\\packages\\bouncycastle.cryptography\\2.6.1\\bouncycastle.cryptography.2.6.1.nupkg.sha512",
     "C:\\Users\\muham\\.nuget\\packages\\google.apis\\1.69.0\\google.apis.1.69.0.nupkg.sha512",

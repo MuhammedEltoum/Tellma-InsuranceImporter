@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using System.Xml.Serialization;
 using Tellma.InsuranceImporter.Contract;
 using Tellma.InsuranceImporter.Enums;
 using Tellma.InsuranceImporter.Repository;
@@ -13,14 +12,16 @@ namespace Tellma.InsuranceImporter
         private readonly ITellmaService _service;
         private readonly IWorksheetRepository<Technical> _repository;
         private readonly ILogger<TechnicalService> _logger;
-        private readonly IOptionsMonitor<InsuranceOptions> _options;
+        private readonly IOptions<TellmaOptions> _tellmaOptions;
+        private readonly IOptionsMonitor<InsuranceOptions> _insuranceOptions;
 
-        public TechnicalService(IWorksheetRepository<Technical> repository, ITellmaService service, ILogger<TechnicalService> logger, IOptionsMonitor<InsuranceOptions> options)
+        public TechnicalService(IWorksheetRepository<Technical> repository, ITellmaService service, ILogger<TechnicalService> logger, IOptionsMonitor<InsuranceOptions> insuranceOptions, IOptions<TellmaOptions> tellmaOptions)
         {
             _service = service ?? throw new ArgumentNullException(nameof(service));
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _options = options ?? throw new ArgumentNullException(nameof(options));
+            _insuranceOptions = insuranceOptions ?? throw new ArgumentNullException(nameof(insuranceOptions));
+            _tellmaOptions = tellmaOptions ?? throw new ArgumentNullException(nameof(tellmaOptions));
         }
 
         public async Task Import(string tenantCode, CancellationToken cancellationToken)
@@ -51,7 +52,7 @@ namespace Tellma.InsuranceImporter
 
             var mappingAccountsTask = _repository.GetMappingAccounts(cancellationToken);
 
-            var tenantId = InsuranceHelper.GetTenantId(tenantCode);
+            var tenantId = InsuranceHelper.GetTenantId(tenantCode, _tellmaOptions.Value.Tenants);
 
             var tenantProfile = await _service.GetTenantProfile(tenantId, cancellationToken);
 
@@ -632,7 +633,7 @@ namespace Tellma.InsuranceImporter
             RemoveIf(ref valid, w => Math.Abs(w.Direction) != 1 && w.ContractAmount != 0 && w.ValueFc2 != 0, $"Technical worksheet must have valid direction [{string.Join(", ", valid.Where(w => Math.Abs(w.Direction) != 1 && w.ContractAmount != 0 && w.ValueFc2 != 0).Select(w => w.Direction).Distinct())}], must be either 1 or -1.");
 
             // Keep only worksheets with supported prefixes
-            var supportedPrefixes = (_options.CurrentValue.TechnicalSupportedPrefixes ?? "TW,CW")
+            var supportedPrefixes = (_insuranceOptions.CurrentValue.TechnicalSupportedPrefixes ?? "TW,CW")
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .ToList();
 

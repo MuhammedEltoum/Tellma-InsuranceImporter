@@ -1,0 +1,17 @@
+C:\Users\muham\source\repos\Tellma-InsuranceImporter\publish\Tellma.InsuranceImporter.Repository.dll
+C:\Users\muham\source\repos\Tellma-InsuranceImporter\publish\Tellma.InsuranceImporter.Repository.deps.json
+C:\Users\muham\source\repos\Tellma-InsuranceImporter\publish\Tellma.InsuranceImporter.Repository.pdb
+C:\Users\muham\source\repos\Tellma-InsuranceImporter\publish\Microsoft.Extensions.DependencyInjection.Abstractions.dll
+C:\Users\muham\source\repos\Tellma-InsuranceImporter\publish\Microsoft.Extensions.Options.dll
+C:\Users\muham\source\repos\Tellma-InsuranceImporter\publish\Microsoft.Extensions.Primitives.dll
+C:\Users\muham\source\repos\Tellma-InsuranceImporter\publish\System.Configuration.ConfigurationManager.dll
+C:\Users\muham\source\repos\Tellma-InsuranceImporter\publish\System.Data.OleDb.dll
+C:\Users\muham\source\repos\Tellma-InsuranceImporter\publish\System.Diagnostics.EventLog.dll
+C:\Users\muham\source\repos\Tellma-InsuranceImporter\publish\System.Diagnostics.PerformanceCounter.dll
+C:\Users\muham\source\repos\Tellma-InsuranceImporter\publish\System.Security.Cryptography.ProtectedData.dll
+C:\Users\muham\source\repos\Tellma-InsuranceImporter\publish\runtimes\win\lib\net10.0\System.Data.OleDb.dll
+C:\Users\muham\source\repos\Tellma-InsuranceImporter\publish\runtimes\win\lib\net10.0\System.Diagnostics.EventLog.Messages.dll
+C:\Users\muham\source\repos\Tellma-InsuranceImporter\publish\runtimes\win\lib\net10.0\System.Diagnostics.EventLog.dll
+C:\Users\muham\source\repos\Tellma-InsuranceImporter\publish\runtimes\win\lib\net10.0\System.Diagnostics.PerformanceCounter.dll
+C:\Users\muham\source\repos\Tellma-InsuranceImporter\publish\Tellma.InsuranceImporter.Contract.dll
+C:\Users\muham\source\repos\Tellma-InsuranceImporter\publish\Tellma.InsuranceImporter.Contract.pdb

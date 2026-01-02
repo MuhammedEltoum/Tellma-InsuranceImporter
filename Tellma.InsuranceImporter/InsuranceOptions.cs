@@ -22,5 +22,9 @@ namespace Tellma.InsuranceImporter
         public string PairingSupportedPrefixes { get; set; }
         public string PrvsPairingTransactionsDate { get; set; }
 
+        // Daily schedule Options
+        public int Hour { get; set; }
+        public int Minute { get; set; }
+        public int Second { get; set; }
     }
 }

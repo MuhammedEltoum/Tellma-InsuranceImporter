@@ -14,17 +14,20 @@ namespace Tellma.InsuranceImporter
         private readonly ITellmaService _service;
         private readonly IWorksheetRepository<Pairing> _pairingRepository;
         private readonly ILogger<PairingService> _logger;
+        private readonly IOptions<TellmaOptions> _tellmaOptions;
         private readonly IOptionsMonitor<InsuranceOptions> _insuranceOptions;
 
         public PairingService(ITellmaService tellmaService,
                               IWorksheetRepository<Pairing> pairingRepository,
                               ILogger<PairingService> logger,
-                              IOptionsMonitor<InsuranceOptions> insuranceOptions)
+                              IOptionsMonitor<InsuranceOptions> insuranceOptions,
+                              IOptions<TellmaOptions> tellmaOptions)
         {
             _service = tellmaService;
             _pairingRepository = pairingRepository;
             _logger = logger;
             _insuranceOptions = insuranceOptions;
+            _tellmaOptions = tellmaOptions;
         }
 
         public async Task Import(string tenantCode, CancellationToken cancellationToken)
@@ -71,7 +74,7 @@ namespace Tellma.InsuranceImporter
 
         private async Task ProcessTenant(string tenantCode, List<Pairing> tenantWorks, CancellationToken cancellationToken)
         {
-            var tenantId = InsuranceHelper.GetTenantId(tenantCode);
+            var tenantId = InsuranceHelper.GetTenantId(tenantCode, _tellmaOptions.Value.Tenants);
             var tenantProfile = await _service.GetTenantProfile(tenantId, cancellationToken);
 
             _logger.LogInformation("\nProcessing tenant {TenantCode} (ID: {TenantId}) with {Count} pairing worksheets\n",
@@ -556,8 +559,8 @@ namespace Tellma.InsuranceImporter
                         Direction = direction,
                         MonetaryValue = Math.Round(lineMonetaryValue, 2),
                         Value = Math.Round(lineValue, 2),
-                        Time1 = contract?.FromDate,
-                        Time2 = contract?.ToDate,
+                        Time1 = pairingLine.EffectiveDate,
+                        Time2 = pairingLine.ExpiryDate,
                         NotedDate = pairingLine.TechNotedDate
                     });
 

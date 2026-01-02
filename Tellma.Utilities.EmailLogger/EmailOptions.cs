@@ -17,5 +17,6 @@
 
         // Google gemini specific
         public string? GoogleGeminiApiKey { get; set; }
+        public string? Model { get; set; }
     }
 }

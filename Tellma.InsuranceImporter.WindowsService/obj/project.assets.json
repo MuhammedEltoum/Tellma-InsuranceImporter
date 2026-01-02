@@ -2562,11 +2562,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.WindowsService\\Tellma.InsuranceImporter.WindowsService.csproj",
+      "projectUniqueName": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.WindowsService\\Tellma.InsuranceImporter.WindowsService.csproj",
       "projectName": "Tellma.InsuranceImporter.WindowsService",
-      "projectPath": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.WindowsService\\Tellma.InsuranceImporter.WindowsService.csproj",
+      "projectPath": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.WindowsService\\Tellma.InsuranceImporter.WindowsService.csproj",
       "packagesPath": "C:\\Users\\muham\\.nuget\\packages\\",
-      "outputPath": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.WindowsService\\obj\\",
+      "outputPath": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.WindowsService\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -2587,14 +2587,14 @@
         "net10.0": {
           "targetAlias": "net10.0",
           "projectReferences": {
-            "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.Repository\\Tellma.InsuranceImporter.Repository.csproj": {
-              "projectPath": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.Repository\\Tellma.InsuranceImporter.Repository.csproj"
+            "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.Repository\\Tellma.InsuranceImporter.Repository.csproj": {
+              "projectPath": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.Repository\\Tellma.InsuranceImporter.Repository.csproj"
             },
-            "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj": {
-              "projectPath": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj"
+            "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj": {
+              "projectPath": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj"
             },
-            "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.Utilities.EmailLogger\\Tellma.Utilities.EmailLogger.csproj": {
-              "projectPath": "D:\\Projects\\BananIT\\Tellma-InsuranceImporter\\Tellma.Utilities.EmailLogger\\Tellma.Utilities.EmailLogger.csproj"
+            "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.Utilities.EmailLogger\\Tellma.Utilities.EmailLogger.csproj": {
+              "projectPath": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.Utilities.EmailLogger\\Tellma.Utilities.EmailLogger.csproj"
             }
           }
         }

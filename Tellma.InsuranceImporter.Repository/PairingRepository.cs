@@ -59,8 +59,10 @@ namespace Tellma.InsuranceImporter.Repository
                 ",COALESCE(tmt.[B Account], '06001') as 'ACCOUNT_CODE'" +
                 ",COALESCE(tmt.[B TAX Account], 0) as 'B_TAX_ACCOUNT'" +
                 ",CASE tmt.[B sign] WHEN 'Debit' THEN 1 ELSE - 1 END as 'B_ACCOUNT_SIGN'" +
-                ",tmt.[B Has NOTED_DATE] " +
-            "FROM [Test].[dbo].[Pairing] p " +
+                ",tmt.[B Has NOTED_DATE]" +
+                ",t.[EFFECTIVE_DATE]" +
+                ",t.[EXPIRY_DATE]" +
+            "FROM [dbo].[Pairing] p " +
             "left join Technicals t on (p.TECH_WS_ID = t.WORKSHEET_ID AND p.Bal2_OBJECT_ID = t.BAL_OBJECT_ID) OR (p.REMIT_WS_ID = t.WORKSHEET_ID AND p.Bal1_OBJECT_ID = t.BAL_OBJECT_ID) " +
             "left join Remittances r on (p.REMIT_WS_ID = r.WORKSHEET_ID AND p.Bal1_OBJECT_ID = r.BAL_OBJECT_ID) OR (p.TECH_WS_ID = r.WORKSHEET_ID AND p.Bal2_OBJECT_ID = r.BAL_OBJECT_ID) " +
             "left join Tellma_Mapping_Technical tmt on t.[ACCOUNT_CODE] = tmt.[SICS_Account] AND t.[IS_INWARD] = tmt.[IS_INWARD] " +
@@ -86,21 +88,23 @@ namespace Tellma.InsuranceImporter.Repository
                 ",[AGENT_NAME2]" +
                 ",[TENANT_CODE2]" +
                 ",[TENANT_NAME2]" +
-                ",t.[CONTRACT_CODE]" +
+                ",r.[WORKSHEET_ID]" +
                 ",r.[AGENT_CODE]" +
                 ",r.[Direction]" +
                 ",r.[PAYMENT_DATE]" +
-                ",t.[IS_INWARD]" +
-                ",t.[BROKER_CODE]" +
-                ",t.[BUSINESS_MAIN_CLASS_CODE]" +
-                ",t.CONTRACT_CURRENCY_ID" +
                 ",t.[WORKSHEET_ID]" +
-                ",r.[WORKSHEET_ID]" +
+                ",t.[AGENT_CODE]" +
+                ",t.[BROKER_CODE]" +
+                ",t.[CONTRACT_CODE]" +
+                ",t.CONTRACT_CURRENCY_ID" +
+                ",t.[EFFECTIVE_DATE]" +
+                ",t.[EXPIRY_DATE]" +
+                ",t.[DIRECTION]" +
+                ",t.[IS_INWARD]" +
+                ",t.[NOTED_DATE]" +
+                ",t.[BUSINESS_MAIN_CLASS_CODE]" +
                 ",p.[TELLMA_DOCUMENT_ID]" +
                 ",p.[BATCH_ID]" +
-                ",t.[DIRECTION]" +
-                ",t.[AGENT_CODE]" +
-                ",t.[NOTED_DATE]" +
                 ",tmt.[B sign]" +
                 ",tmt.[B Account]" +
                 ",tmt.[B Has NOTED_DATE]" +
@@ -153,7 +157,9 @@ namespace Tellma.InsuranceImporter.Repository
                         AccountCode = !reader.IsDBNull(38) ? reader.GetString(38) : String.Empty,
                         BTaxAccount = !reader.IsDBNull(39) ? Convert.ToBoolean(reader.GetValue(39)) : false,
                         BDirection = !reader.IsDBNull(40) ? Convert.ToInt16(reader.GetValue(40)) : (short)0,
-                        BHasNotedDate = !reader.IsDBNull(41) ? Convert.ToBoolean(reader.GetValue(41)) : false
+                        BHasNotedDate = !reader.IsDBNull(41) ? Convert.ToBoolean(reader.GetValue(41)) : false,
+                        EffectiveDate = !reader.IsDBNull(42) ? Convert.ToDateTime(reader.GetValue(42)) : DateTime.MinValue,
+                        ExpiryDate = !reader.IsDBNull(43) ? Convert.ToDateTime(reader.GetValue(43)) : DateTime.MinValue
                     });
                 }
             }

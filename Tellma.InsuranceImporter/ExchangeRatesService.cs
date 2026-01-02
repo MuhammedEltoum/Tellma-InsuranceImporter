@@ -11,6 +11,7 @@ namespace Tellma.InsuranceImporter
         private readonly ITellmaService _service;
         private readonly IExchangeRatesRepository _repository;
         private readonly ILogger<TellmaService> _logger;
+        private readonly IOptions<TellmaOptions> _options;
 
         public ExchangeRatesService(IExchangeRatesRepository repository,
             ITellmaService tellmaService,
@@ -20,11 +21,12 @@ namespace Tellma.InsuranceImporter
             _service = tellmaService;
             _repository = repository;
             _logger = logger;
+            _options = options;
         }
 
         public async Task Import(string tenantCode, CancellationToken cancellationToken)
         {
-            var tenantId = InsuranceHelper.GetTenantId(tenantCode);
+            var tenantId = InsuranceHelper.GetTenantId(tenantCode, _options.Value.Tenants);
 
             var tenantProfile = await _service.GetTenantProfile(tenantId, cancellationToken);
 
