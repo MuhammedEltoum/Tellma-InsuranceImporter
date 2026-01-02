@@ -59,7 +59,7 @@
               "RelativeDocumentMoniker": "..\\..\\..\\AppData\\Roaming\\Microsoft\\UserSecrets\\dotnet-Tellma.InsuranceImporter.WindowsService-6615773f-c90d-426f-bda5-3c3db4628ad6\\secrets.json",
               "ToolTip": "C:\\Users\\muham\\AppData\\Roaming\\Microsoft\\UserSecrets\\dotnet-Tellma.InsuranceImporter.WindowsService-6615773f-c90d-426f-bda5-3c3db4628ad6\\secrets.json",
               "RelativeToolTip": "..\\..\\..\\AppData\\Roaming\\Microsoft\\UserSecrets\\dotnet-Tellma.InsuranceImporter.WindowsService-6615773f-c90d-426f-bda5-3c3db4628ad6\\secrets.json",
-              "ViewState": "AgIAABMAAAAAAAAAAAAAACIAAAADAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAcAAAATAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
               "WhenOpened": "2026-01-02T05:49:34.378Z",
               "EditorCaption": ""
@@ -74,8 +74,7 @@
               "RelativeToolTip": "Tellma.InsuranceImporter\\TellmaService.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAMcBAAAtAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-12-30T07:45:04.047Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-12-30T07:45:04.047Z"
             },
             {
               "$type": "Document",
@@ -99,8 +98,7 @@
               "RelativeToolTip": "Tellma.InsuranceImporter.WindowsService\\Program.cs",
               "ViewState": "AgIAABUAAAAAAAAAAAAAACcAAABEAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-12-30T06:55:02.239Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-12-30T06:55:02.239Z"
             },
             {
               "$type": "Document",
@@ -112,8 +110,7 @@
               "RelativeToolTip": "Tellma.Utilities.EmailLogger\\EmailLogger.cs",
               "ViewState": "AgIAAL8AAAAAAAAAAAAAANcAAAAvAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-12-29T05:57:28.73Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-12-29T05:57:28.73Z"
             },
             {
               "$type": "Document",
@@ -125,8 +122,7 @@
               "RelativeToolTip": "Tellma.InsuranceImporter.WindowsService\\Worker.cs",
               "ViewState": "AgIAAJcAAAAAAAAAAAAAAEsAAAANAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-12-27T10:35:42.299Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-12-27T10:35:42.299Z"
             },
             {
               "$type": "Document",
@@ -134,9 +130,9 @@
               "Title": "appsettings.json",
               "DocumentMoniker": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.WindowsService\\appsettings.json",
               "RelativeDocumentMoniker": "Tellma.InsuranceImporter.WindowsService\\appsettings.json",
-              "ToolTip": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.WindowsService\\appsettings.json*",
-              "RelativeToolTip": "Tellma.InsuranceImporter.WindowsService\\appsettings.json*",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABsAAAAEAAAAAAAAAA==",
+              "ToolTip": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter.WindowsService\\appsettings.json",
+              "RelativeToolTip": "Tellma.InsuranceImporter.WindowsService\\appsettings.json",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAcAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
               "WhenOpened": "2025-12-28T11:32:18.246Z",
               "EditorCaption": ""
