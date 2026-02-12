@@ -4,6 +4,7 @@
     {
         public int PK { get; set; }
         public string? WorksheetId { get; set; }
+        public DateTime PaymentDate { get; set; }
         public DateTime PostingDate { get; set; }
         public bool IsPosted { get; set; }
         public int TellmaDocumentId { get; set; } = 0;

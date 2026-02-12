@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Tellma.InsuranceImporter.Repository")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+34ecca7df16fb254e4fb54b56867886ed70dc25b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7214550dd34272d149cc58fcdb510fbbf85151c6")]
 [assembly: System.Reflection.AssemblyProductAttribute("Tellma.InsuranceImporter.Repository")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Tellma.InsuranceImporter.Repository")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

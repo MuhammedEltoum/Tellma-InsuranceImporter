@@ -1,16 +1,7 @@
 {
   "Version": 1,
   "WorkspaceRootPath": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\",
-  "Documents": [
-    {
-      "AbsoluteMoniker": "D:0:0:{1007D5F2-C947-440F-8D83-6D42C145AC96}|Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj|c:\\users\\muham\\source\\repos\\tellma-insuranceimporter\\tellma.insuranceimporter\\remittanceservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{1007D5F2-C947-440F-8D83-6D42C145AC96}|Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj|solutionrelative:tellma.insuranceimporter\\remittanceservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{1007D5F2-C947-440F-8D83-6D42C145AC96}|Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj|c:\\users\\muham\\source\\repos\\tellma-insuranceimporter\\tellma.insuranceimporter\\technicalservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{1007D5F2-C947-440F-8D83-6D42C145AC96}|Tellma.InsuranceImporter\\Tellma.InsuranceImporter.csproj|solutionrelative:tellma.insuranceimporter\\technicalservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    }
-  ],
+  "Documents": [],
   "DocumentGroupContainers": [
     {
       "Orientation": 0,
@@ -18,7 +9,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 4,
+          "SelectedChildIndex": -1,
           "Children": [
             {
               "$type": "Bookmark",
@@ -31,32 +22,6 @@
             {
               "$type": "Bookmark",
               "Name": "ST:128:0:{116d2292-e37d-41cd-a077-ebacac4c8cc4}"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "TechnicalService.cs",
-              "DocumentMoniker": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\TechnicalService.cs",
-              "RelativeDocumentMoniker": "Tellma.InsuranceImporter\\TechnicalService.cs",
-              "ToolTip": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\TechnicalService.cs",
-              "RelativeToolTip": "Tellma.InsuranceImporter\\TechnicalService.cs",
-              "ViewState": "AgIAAAMCAAAAAAAAAAAwwBECAAAyAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-02-12T12:53:16.808Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "RemittanceService.cs",
-              "DocumentMoniker": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\RemittanceService.cs",
-              "RelativeDocumentMoniker": "Tellma.InsuranceImporter\\RemittanceService.cs",
-              "ToolTip": "C:\\Users\\muham\\source\\repos\\Tellma-InsuranceImporter\\Tellma.InsuranceImporter\\RemittanceService.cs",
-              "RelativeToolTip": "Tellma.InsuranceImporter\\RemittanceService.cs",
-              "ViewState": "AgIAAD4BAAAAAAAAAAAAAE4BAABJAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-02-12T12:51:25.267Z",
-              "EditorCaption": ""
             }
           ]
         }

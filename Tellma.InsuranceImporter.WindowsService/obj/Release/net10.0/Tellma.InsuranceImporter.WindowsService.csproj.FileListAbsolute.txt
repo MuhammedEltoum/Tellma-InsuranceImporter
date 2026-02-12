@@ -1,5 +1,4 @@
 C:\Users\muham\source\repos\Tellma-InsuranceImporter\Tellma.InsuranceImporter.WindowsService\bin\Release\net10.0\appsettings.Development.json
-C:\Users\muham\source\repos\Tellma-InsuranceImporter\Tellma.InsuranceImporter.WindowsService\bin\Release\net10.0\appsettings.json
 C:\Users\muham\source\repos\Tellma-InsuranceImporter\Tellma.InsuranceImporter.WindowsService\bin\Release\net10.0\Tellma.InsuranceImporter.WindowsService.exe
 C:\Users\muham\source\repos\Tellma-InsuranceImporter\Tellma.InsuranceImporter.WindowsService\bin\Release\net10.0\Tellma.InsuranceImporter.WindowsService.deps.json
 C:\Users\muham\source\repos\Tellma-InsuranceImporter\Tellma.InsuranceImporter.WindowsService\bin\Release\net10.0\Tellma.InsuranceImporter.WindowsService.runtimeconfig.json

@@ -31,7 +31,8 @@ namespace Tellma.InsuranceImporter.Repository
                                     "[Remittance_Notes], " +
                                     "[TELLMA_DOCUMENT_ID], " +
                                     "[BAL_OBJECT_ID], " +
-                                    "[TRANSFER_TO_TELLMA] " +
+                                    "[TRANSFER_TO_TELLMA], " +
+                                    "[POSTING_DATE] " +
                                 "FROM [Remittances] " +
                                 "WHERE " + filter ?? "1=1";
             
@@ -43,7 +44,7 @@ namespace Tellma.InsuranceImporter.Repository
                     {
                         PK = reader.GetInt32(0),
                         WorksheetId = reader.GetString(1),
-                        PostingDate = reader.GetDateTime(2),
+                        PaymentDate = reader.GetDateTime(2),
                         Reference = reader.GetString(3),
                         AgentCode = reader.GetString(4),
                         AgentName = reader.GetString(5),
@@ -62,6 +63,7 @@ namespace Tellma.InsuranceImporter.Repository
                         TellmaDocumentId = !reader.IsDBNull(18) ? reader.GetInt32(18) : 0,
                         BalObjectId = !reader.IsDBNull(19) ? reader.GetString(19) : String.Empty,
                         TransferToTellma = !reader.IsDBNull(20) ? reader.GetString(20) : "N",
+                        PostingDate = reader.GetDateTime(21)
                     });
                 }
             }

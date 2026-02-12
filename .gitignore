@@ -1,3 +1,4 @@
 "TellmaInsuranceImporter.http" 
 Publish/
 *.zip
+".vs/"
