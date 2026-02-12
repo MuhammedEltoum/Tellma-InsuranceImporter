@@ -332,7 +332,8 @@ namespace Tellma.InsuranceImporter
                 {
                     Id = remittance.TellmaDocumentId,
                     SerialNumber = serialNumber,
-                    PostingDate = remittance.PostingDate,
+                    // Transaction date amendment, requested 12/Feb/2026.
+                    PostingDate = remittance.PostingDate.AddDays(1 - remittance.PostingDate.Day),
                     PostingDateIsCommon = true,
                     Lookup1Id = inwardOutwardLookupId,
                     Memo = memo,
